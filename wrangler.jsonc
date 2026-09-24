@@ -13,5 +13,7 @@
   // D1 opprettes automatisk ved første `wrangler deploy` (ingen database_id nødvendig).
   // Schema + mock-data legges inn automatisk ved første API-kall.
   "d1_databases": [{ "binding": "DB", "database_name": "rieber-flow-db" }],
+  // Behold variabler/secrets som er lagt inn i Cloudflare-dashbordet (f.eks. BARENTSWATCH_*) ved hver deploy
+  "keep_vars": true,
   "observability": { "enabled": true }
 }

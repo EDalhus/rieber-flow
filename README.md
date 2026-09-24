@@ -44,6 +44,8 @@ Fanen **Flåte & kart** viser et kart over Norge (Kartverket) der bare båtene i
 1. Registrer en **AIS-klient** på [barentswatch.no/minside](https://www.barentswatch.no/minside/) (velg «AIS-client»).
 2. Sett hemmelighetene på Worker-en: `npx wrangler secret put BARENTSWATCH_CLIENT_ID` og `... BARENTSWATCH_CLIENT_SECRET` (eller Cloudflare Dashboard → Worker → Settings → Variables and Secrets). Lokalt: kopier `.dev.vars.example` til `.dev.vars`.
 
+**Feilsøking:** trykk «Test AIS-tilkobling» på Flåte-siden (eller åpne `/api/ais/status`). Nøklene må ligge som *Variables and Secrets* på selve Worker-en (Settings), ikke som «Build»-variabler – og Worker-en må deployes på nytt etter at de er lagt inn.
+
 Uten nøkler vises **simulerte posisjoner** langs kysten (merket i UI-et), slik at demoen fungerer uten konto. Demo-flåten bruker plassholder-MMSI-er – i live-modus finner du ekte fartøy via søket. Dekning: norsk økonomisk sone, Svalbard og Jan Mayen; fiskefartøy under 15 m og fritidsbåter under 45 m er ikke med. Se [Barentswatch AIS-dokumentasjon](https://developer.barentswatch.no/docs/AIS/live-ais-api).
 
 ## Demo-flyt

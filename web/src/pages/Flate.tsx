@@ -78,6 +78,7 @@ export function Flate() {
   const [q, setQ] = useState('');
   const [treff, setTreff] = useState<{ mmsi: string; navn: string }[]>([]);
   const [feil, setFeil] = useState<string | null>(null);
+  const [diag, setDiag] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!valgt) { setSpor([]); return; }
@@ -113,6 +114,15 @@ export function Flate() {
       {data.kilde === 'simulert' && (
         <div className="info">Ingen Barentswatch-nøkkel er satt, så posisjonene er simulert. Sett <code>BARENTSWATCH_CLIENT_ID</code> og <code>BARENTSWATCH_CLIENT_SECRET</code> for ekte AIS-data (se README).</div>
       )}
+      {data.kilde === 'ais' && data.fartoy.length > 0 && data.fartoy.every((f) => !f.posisjon) && !data.feil && (
+        <div className="info">Live AIS er på, men ingen av båtene i flåten har posisjon. Demo-båtene har plassholder-MMSI – fjern dem og søk opp ekte fartøy under «Legg til båt».</div>
+      )}
+      <div className="diag">
+        <button className="btn ghost sm" onClick={async () => setDiag(await api<Record<string, unknown>>('/ais/status').catch((e) => ({ konklusjon: (e as Error).message })))}>Test AIS-tilkobling</button>
+        {diag && (
+          <pre>{JSON.stringify(diag, null, 2)}</pre>
+        )}
+      </div>
       {(data.feil || feil) && <div className="error">{data.feil ?? feil}</div>}
 
       <div className="flate-grid">

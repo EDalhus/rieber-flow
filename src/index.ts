@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { ensureDb, resetDb } from './db';
-import { kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
+import { diagnose, kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
 
 type Env = { Bindings: { DB: D1Database; ASSETS: Fetcher } & AisEnv };
 
@@ -382,6 +382,8 @@ app.delete('/api/flate/:mmsi', async (c) => {
   await c.env.DB.prepare('DELETE FROM Flate WHERE bruker_id=? AND mmsi=?').bind(bruker.id, c.req.param('mmsi')).run();
   return c.json({ ok: true });
 });
+
+app.get('/api/ais/status', async (c) => c.json(await diagnose(c.env).catch((e) => ({ konklusjon: (e as Error).message }))));
 
 app.get('/api/ais/sok', async (c) => {
   try {

@@ -115,3 +115,35 @@ export async function spor(env: AisEnv, mmsi: string) {
     return p ? [{ lat: p.lat, lon: p.lon, msgtime: p.msgtime }] : [];
   });
 }
+
+/** Feilsøking av AIS-oppsettet. Returnerer aldri verdier på hemmelighetene – bare status og feltnavn. */
+export async function diagnose(env: AisEnv) {
+  const ut: Record<string, unknown> = {
+    clientId: !!env.BARENTSWATCH_CLIENT_ID,
+    clientSecret: !!env.BARENTSWATCH_CLIENT_SECRET,
+  };
+  if (!harNokkel(env)) {
+    ut.konklusjon = 'Nøklene er ikke tilgjengelige for Worker-en ved kjøring. Legg dem inn som «Variables and Secrets» på selve Worker-en (Settings), ikke som build-variabler, og deploy på nytt.';
+    return ut;
+  }
+  try {
+    token = null;
+    await hentToken(env);
+    ut.token = 'ok';
+  } catch (e) {
+    ut.token = (e as Error).message;
+    ut.konklusjon = 'Innloggingen mot Barentswatch feilet. Sjekk at klienten er registrert som AIS-client og at id/secret er riktig (ingen mellomrom).';
+    return ut;
+  }
+  const r = await bw(env, `${LIVE}/v1/latest/combined`);
+  ut.latestStatus = r.status;
+  if (r.ok) {
+    const liste = (await r.json()) as any[];
+    ut.antallFartoy = liste.length;
+    ut.feltnavn = liste[0] ? Object.keys(liste[0]) : [];
+    ut.konklusjon = 'AIS fungerer. Fartøy i flåten uten posisjon har trolig feil MMSI eller ingen nylig AIS-melding.';
+  } else {
+    ut.konklusjon = `Barentswatch svarte ${r.status}. Klienten mangler trolig tilgang til AIS-scope.`;
+  }
+  return ut;
+}
