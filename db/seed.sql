@@ -1,5 +1,11 @@
 -- Mock-data for demo. Tidspunkter er relative til "nå" slik at demoen alltid ser fersk ut.
 
+-- Demo-brukere
+INSERT INTO Brukere (epost, navn, rolle) VALUES
+  ('formann@rieber.demo',  'Terminalformann', 'Formann'),
+  ('kontor@rieber.demo',   'Kari Kontor',     'Kontor'),
+  ('ledelse@rieber.demo',  'Leif Ledelse',    'Ledelse');
+
 -- 3 fargekodede salttyper
 INSERT INTO Varelager (salttype, fargekode, tonn_bulk, antall_bigbags) VALUES
   ('Veisalt',   '#1E6FFF', 4820.0,  310),   -- Blått

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from './api';
+import { api, useApi, type Meg } from './api';
 import { Dashboard } from './pages/Dashboard';
 import { Anlop, Lasteplan } from './pages/Anlop';
 import { SoKo } from './pages/SoKo';
@@ -21,6 +21,31 @@ const NAV = [
   ['/anlop', 'Båtanløp', <IconShip />],
   ['/so-ko', 'SO-kø', <IconList />],
 ] as const;
+
+function Bruker() {
+  const { data } = useApi<Meg>('/meg', 0);
+  if (!data) return <div className="user" />;
+  const b = data.bruker;
+  const ini = b.navn.split(' ').map((x) => x[0]).join('').slice(0, 2).toUpperCase();
+  return (
+    <div className="user">
+      <span className="avatar">{ini}</span>
+      <div>
+        {data.demo ? (
+          <select
+            className="user-sel"
+            value={b.epost}
+            title="Demo: bytt bruker (ekte innlogging via Cloudflare Access)"
+            onChange={(e) => { try { localStorage.setItem('flow-user', e.target.value); } catch {} location.reload(); }}
+          >
+            {data.brukere.map((u) => <option key={u.id} value={u.epost}>{u.navn}</option>)}
+          </select>
+        ) : <b>{b.navn}</b>}
+        <small>{b.rolle} · Rieber Flow</small>
+      </div>
+    </div>
+  );
+}
 
 export function App() {
   const path = useHash();
@@ -61,10 +86,7 @@ export function App() {
       <div className="col">
         <header className="topbar">
           <Search />
-          <div className="user">
-            <span className="avatar">TF</span>
-            <div><b>Terminalformann</b><small>Kontor · Rieber Flow</small></div>
-          </div>
+          <Bruker />
         </header>
         <main>{page}</main>
       </div>

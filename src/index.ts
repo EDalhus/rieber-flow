@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { ensureDb, resetDb } from './db';
 
@@ -291,6 +291,61 @@ app.get('/api/sjafor', async (c) => {
   }
   const ko = await medLinjer(db, (await db.prepare(`${SO_SQL} WHERE s.batanlop_id IS NULL AND s.status!='Ferdig' ORDER BY s.frist LIMIT 3`).all()).results, 'id');
   return c.json({ modus: 'lastebil', ko, varer });
+});
+
+// ---------- Bruker og personlig dashboard ----------
+
+type Bruker = { id: number; epost: string; navn: string; rolle: string };
+
+/**
+ * Cloudflare Access setter Cf-Access-Authenticated-User-Email (ekte innlogging).
+ * Uten Access brukes X-Demo-User (kun for demo – kan forfalskes) eller første bruker.
+ */
+async function hentBruker(c: Context<Env>) {
+  const db = c.env.DB;
+  const access = c.req.header('Cf-Access-Authenticated-User-Email')?.toLowerCase();
+  const epost = access ?? c.req.header('X-Demo-User')?.toLowerCase();
+  let u = epost ? await db.prepare('SELECT * FROM Brukere WHERE epost=?').bind(epost).first<Bruker>() : null;
+  if (!u && access) {
+    await db.prepare('INSERT INTO Brukere (epost, navn) VALUES (?,?)').bind(access, access.split('@')[0]).run();
+    u = await db.prepare('SELECT * FROM Brukere WHERE epost=?').bind(access).first<Bruker>();
+  }
+  u ??= await db.prepare('SELECT * FROM Brukere ORDER BY id LIMIT 1').first<Bruker>();
+  return { bruker: u!, demo: !access };
+}
+
+app.get('/api/meg', async (c) => {
+  const { bruker, demo } = await hentBruker(c);
+  const brukere = demo ? (await c.env.DB.prepare('SELECT * FROM Brukere ORDER BY id').all<Bruker>()).results : [];
+  return c.json({ bruker, demo, brukere });
+});
+
+app.get('/api/meg/dashboard', async (c) => {
+  const { bruker } = await hentBruker(c);
+  const rad = await c.env.DB.prepare('SELECT layout FROM DashboardLayout WHERE bruker_id=?').bind(bruker.id).first<{ layout: string }>();
+  return c.json({ layout: rad ? JSON.parse(rad.layout) : null });
+});
+
+app.put('/api/meg/dashboard', async (c) => {
+  const { bruker } = await hentBruker(c);
+  const { layout } = await c.req.json<{ layout: unknown }>();
+  const ok =
+    Array.isArray(layout) && layout.length <= 50 &&
+    layout.every((l: any) => typeof l?.i === 'string' && l.i.length < 64 && ['x', 'y', 'w', 'h'].every((k) => Number.isFinite(l[k])));
+  if (!ok) return c.json({ error: 'Ugyldig layout' }, 400);
+  const rent = (layout as any[]).map(({ i, x, y, w, h }) => ({ i, x, y, w, h }));
+  await c.env.DB.prepare(
+    `INSERT INTO DashboardLayout (bruker_id, layout, oppdatert) VALUES (?,?,?)
+     ON CONFLICT(bruker_id) DO UPDATE SET layout=excluded.layout, oppdatert=excluded.oppdatert`,
+  ).bind(bruker.id, JSON.stringify(rent), now()).run();
+  return c.json({ ok: true });
+});
+
+/** Tilbake til standardoppsett. */
+app.delete('/api/meg/dashboard', async (c) => {
+  const { bruker } = await hentBruker(c);
+  await c.env.DB.prepare('DELETE FROM DashboardLayout WHERE bruker_id=?').bind(bruker.id).run();
+  return c.json({ ok: true });
 });
 
 // ---------- Demo ----------

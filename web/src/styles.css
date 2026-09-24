@@ -172,3 +172,26 @@ button.icon { background: #eef2ef; border: 0; border-radius: 50%; width: 36px; h
 .linjer.kompakt { margin-top: 6px; width: 100%; }
 .linjer.kompakt li { font-size: 13px; }
 .klar { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 700; color: #7a4a00; }
+
+/* Dashboard-grid */
+.wg { height: 100%; position: relative; }
+.wg > .kpi, .wg > .panel { height: 100%; }
+.panel { display: flex; flex-direction: column; overflow: auto; }
+.pills { flex: 1; min-height: 120px; height: auto; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.wg.edit { outline: 2px dashed var(--g400); outline-offset: 2px; border-radius: 24px; cursor: grab; }
+.wg-overlay { position: absolute; inset: 0; border-radius: 24px; background: rgba(255, 255, 255, .2); display: flex; justify-content: flex-end; align-items: flex-start; padding: 10px; z-index: 5; }
+.wg-title { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); background: var(--g800); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 14px; border-radius: 999px; white-space: nowrap; }
+.wg-x { border: 0; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); cursor: pointer; font-weight: 700; }
+.wg-x:hover { background: #fee4e2; color: var(--danger); }
+.react-grid-item.react-grid-placeholder { background: var(--g400); opacity: .25; border-radius: 24px; }
+.react-grid-item > .react-resizable-handle::after { border-color: var(--g700); width: 10px; height: 10px; right: 8px; bottom: 8px; z-index: 6; }
+.react-grid-item > .react-resizable-handle { z-index: 6; }
+.grid-edit .react-grid-item { transition: transform .15s, width .15s, height .15s; }
+.add-wrap { position: relative; }
+.add-meny { position: absolute; right: 0; top: 60px; z-index: 30; background: #fff; border-radius: 18px; box-shadow: 0 14px 40px rgba(0, 0, 0, .18); padding: 6px; min-width: 240px; display: flex; flex-direction: column; }
+.add-meny button { text-align: left; border: 0; background: none; padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 600; }
+.add-meny button:hover { background: var(--g100); }
+.lagre-status { align-self: center; }
+.btns { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+select.user-sel { font: inherit; border: 0; background: transparent; font-weight: 700; cursor: pointer; padding: 0; }

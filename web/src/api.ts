@@ -27,10 +27,21 @@ export type Dashboard = {
   perioder: { dager: number; bigbags: number; salgTonn: number }[];
   produksjonPerDag: { dato: string; bigbags: number }[];
 };
+export type Bruker = { id: number; epost: string; navn: string; rolle: string };
+export type Meg = { bruker: Bruker; demo: boolean; brukere: Bruker[] };
+
+export const demoBruker = () => {
+  try { return localStorage.getItem('flow-user'); } catch { return null; }
+};
+
 export async function api<T = unknown>(path: string, method = 'GET', body?: unknown): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  const demo = demoBruker();
+  if (demo) headers['X-Demo-User'] = demo; // kun demo – ekte innlogging kommer via Cloudflare Access
   const r = await fetch(`/api${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!r.ok) throw new Error(((await r.json().catch(() => null)) as any)?.error ?? r.statusText);

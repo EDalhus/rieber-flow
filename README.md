@@ -29,6 +29,13 @@ Nullstill demodata: knappen «Nullstill demo» i web-panelet, eller `POST /api/a
 
 Sjåførappen bygges i et eget prosjekt/repo og bruker **samme data** via denne Workerens API (`GET /api/sjafor` (SO-er inkluderer `linjer`: bulk/bigbag/pall), `POST /api/lasteplan/:stegId/ferdig`, `POST /api/salgsordrer/:id/ferdig`). D1 kan ikke nås direkte fra en app, så Worker-API-et er den delte kontrakten. CORS er åpent for `/api/*`.
 
+## Personlig dashboard
+
+Dashboardet er et 12-kolonners grid ([react-grid-layout](https://github.com/react-grid-layout/react-grid-layout)). **Tilpass** lar brukeren flytte, endre størrelse på, fjerne og legge til widgets. Oppsettet lagres per bruker i D1 (`DashboardLayout`) via `GET/PUT/DELETE /api/meg/dashboard`.
+
+- **Ny widget:** legg til én oppføring i `WIDGETS` i [web/src/widgets.tsx](web/src/widgets.tsx) – den dukker automatisk opp under «Legg til widget».
+- **Innlogging:** identiteten hentes fra Cloudflare Access (`Cf-Access-Authenticated-User-Email`) når det er slått på (Zero Trust → Access → legg Worker-en bak en policy). Uten Access velger man demo-bruker i toppfeltet (`X-Demo-User`) – dette kan forfalskes og er kun til demo.
+
 ## Demo-flyt
 
 1. **Dashboard:** on-hand pr. salttype, produksjon og salg.

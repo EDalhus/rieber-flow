@@ -2,6 +2,8 @@
 -- Kjøres på nytt ved reset (DROP først), så seed er idempotent.
 
 
+DROP TABLE IF EXISTS DashboardLayout;
+DROP TABLE IF EXISTS Brukere;
 DROP TABLE IF EXISTS BatLasteplan;
 DROP TABLE IF EXISTS SalgsordreLinjer;
 DROP TABLE IF EXISTS Salgsordrer;
@@ -68,3 +70,19 @@ CREATE TABLE SalgsordreLinjer (
   kg_per_enhet  REAL NOT NULL                 -- Bulk: 1000 (pr. tonn), Bigbag: 1000/500, Pall: 40×25=1000
 );
 CREATE INDEX idx_linje_so ON SalgsordreLinjer(so_id);
+
+-- Brukere. Identiteten kommer fra Cloudflare Access (e-post) når det er slått på;
+-- ellers velger demoen bruker i toppfeltet.
+CREATE TABLE Brukere (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  epost   TEXT NOT NULL UNIQUE,
+  navn    TEXT NOT NULL,
+  rolle   TEXT NOT NULL DEFAULT 'Kontor'
+);
+
+-- Personlig dashboard-oppsett (react-grid-layout: [{i, x, y, w, h}]). Ingen rad = standardoppsett.
+CREATE TABLE DashboardLayout (
+  bruker_id   INTEGER PRIMARY KEY REFERENCES Brukere(id) ON DELETE CASCADE,
+  layout      TEXT NOT NULL,                  -- JSON
+  oppdatert   TEXT NOT NULL
+);
