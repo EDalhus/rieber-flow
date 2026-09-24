@@ -26,11 +26,14 @@ async function hentToken(env: AisEnv): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: env.BARENTSWATCH_CLIENT_ID!, client_secret: env.BARENTSWATCH_CLIENT_SECRET!,
+      client_id: env.BARENTSWATCH_CLIENT_ID!.trim(), client_secret: env.BARENTSWATCH_CLIENT_SECRET!.trim(),
       scope: 'ais', grant_type: 'client_credentials',
     }),
   });
-  if (!r.ok) throw new Error(`Barentswatch-innlogging feilet (${r.status})`);
+  if (!r.ok) {
+    const svar = (await r.json().catch(() => null)) as { error?: string; error_description?: string } | null;
+    throw new Error(`Barentswatch-innlogging feilet (${r.status}${svar?.error ? `: ${svar.error}` : ''}${svar?.error_description ? ` – ${svar.error_description}` : ''})`);
+  }
   const j = (await r.json()) as { access_token: string; expires_in: number };
   token = { verdi: j.access_token, utloper: Date.now() + j.expires_in * 1000 };
   return token.verdi;
