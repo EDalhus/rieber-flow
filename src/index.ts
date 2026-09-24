@@ -101,7 +101,7 @@ app.get('/api/batanlop/:id', async (c) => {
   const batanlop = await c.env.DB.prepare(`${BAT_SQL} WHERE b.id=?`).bind(id).first();
   if (!batanlop) return c.json({ error: 'Ikke funnet' }, 404);
   const { results: steg } = await c.env.DB.prepare(`${STEG_SQL} WHERE l.batanlop_id=? ORDER BY l.rekkefolge_nummer`).bind(id).all();
-  return c.json({ batanlop, steg });
+  return c.json({ batanlop, steg: await medLinjer(c.env.DB, steg, 'so_id') });
 });
 
 /** Erstatter lasteplanen med gitt rekkefølge av SO-er. Ferdige steg beholder status. */
@@ -186,13 +186,29 @@ app.post('/api/lasteplan/:stegId/ferdig', async (c) => {
   return c.json({ ok: true });
 });
 
+type Linje = { so_id: number; [k: string]: unknown };
+
+/** Legger SO-linjene (bulk / bigbag / pall) på hver rad. `key` er kolonnen som peker til SO-id. */
+async function medLinjer<T extends Record<string, any>>(db: D1Database, rader: T[], key: 'id' | 'so_id'): Promise<(T & { linjer: Linje[] })[]> {
+  if (rader.length === 0) return [];
+  const ids = [...new Set(rader.map((r) => r[key] as number))];
+  const { results } = await db
+    .prepare(
+      `SELECT l.*, v.fargekode FROM SalgsordreLinjer l JOIN Varelager v ON v.salttype=l.salttype
+       WHERE l.so_id IN (${ids.map(() => '?').join(',')}) ORDER BY l.id`,
+    )
+    .bind(...ids)
+    .all<Linje>();
+  return rader.map((r) => ({ ...r, linjer: results.filter((l) => l.so_id === r[key]) }));
+}
+
 // ---------- Salgsordrer ----------
 
 const SO_SQL = `SELECT s.*, v.fargekode FROM Salgsordrer s JOIN Varelager v ON v.salttype=s.salttype`;
 
 app.get('/api/salgsordrer', async (c) => {
   const { results } = await c.env.DB.prepare(`${SO_SQL} ORDER BY s.frist`).all();
-  return c.json(results);
+  return c.json(await medLinjer(c.env.DB, results, 'id'));
 });
 
 /** SO-kø: ordrer uten båt (lastebil), ikke ferdige, kortest frist først. */
@@ -200,15 +216,33 @@ app.get('/api/so-ko', async (c) => {
   const { results } = await c.env.DB.prepare(
     `${SO_SQL} WHERE s.batanlop_id IS NULL AND s.status!='Ferdig' ORDER BY s.frist ASC`,
   ).all();
-  return c.json(results);
+  return c.json(await medLinjer(c.env.DB, results, 'id'));
 });
 
+app.get('/api/salgsordrer/:id', async (c) => {
+  const so = await c.env.DB.prepare(`${SO_SQL} WHERE s.id=?`).bind(+c.req.param('id')).first();
+  if (!so) return c.json({ error: 'Ikke funnet' }, 404);
+  return c.json((await medLinjer(c.env.DB, [so], 'id'))[0]);
+});
+
+type NyLinje = { produkt: string; salttype: string; emballasje: 'Bulk' | 'Bigbag' | 'Pall'; antall: number; enhet: string; kg_per_enhet: number };
+
+/** Opprett SO. Med `linjer` beregnes tonn (og salttype) fra innholdet. */
 app.post('/api/salgsordrer', async (c) => {
-  const b = await c.req.json<{ ordrenummer: string; kunde: string; salttype: string; tonn: number; frist: string }>();
-  if (!b.ordrenummer || !b.kunde || !b.salttype || !(b.tonn > 0) || !b.frist) return c.json({ error: 'Ugyldig ordre' }, 400);
+  const b = await c.req.json<{ ordrenummer: string; kunde: string; salttype?: string; tonn?: number; frist: string; linjer?: NyLinje[] }>();
+  const linjer = b.linjer ?? [];
+  const tonn = linjer.length ? linjer.reduce((s, l) => s + (l.antall * l.kg_per_enhet) / 1000, 0) : b.tonn;
+  const salttype = linjer[0]?.salttype ?? b.salttype;
+  if (!b.ordrenummer || !b.kunde || !salttype || !tonn || !(tonn > 0) || !b.frist) return c.json({ error: 'Ugyldig ordre' }, 400);
   const r = await c.env.DB.prepare('INSERT INTO Salgsordrer (ordrenummer, kunde, salttype, tonn, frist) VALUES (?,?,?,?,?)')
-    .bind(b.ordrenummer, b.kunde, b.salttype, b.tonn, b.frist).run();
-  return c.json({ id: r.meta.last_row_id }, 201);
+    .bind(b.ordrenummer, b.kunde, salttype, tonn, b.frist).run();
+  const id = r.meta.last_row_id;
+  if (linjer.length) {
+    await c.env.DB.batch(linjer.map((l) =>
+      c.env.DB.prepare('INSERT INTO SalgsordreLinjer (so_id, produkt, salttype, emballasje, antall, enhet, kg_per_enhet) VALUES (?,?,?,?,?,?,?)')
+        .bind(id, l.produkt, l.salttype, l.emballasje, l.antall, l.enhet, l.kg_per_enhet)));
+  }
+  return c.json({ id }, 201);
 });
 
 app.patch('/api/salgsordrer/:id', async (c) => {
@@ -249,11 +283,13 @@ app.get('/api/sjafor', async (c) => {
   const varer = (await db.prepare('SELECT * FROM Varelager ORDER BY id').all()).results;
   if (bat) {
     const steg = (await db.prepare(`${STEG_SQL} WHERE l.batanlop_id=? ORDER BY l.rekkefolge_nummer`).bind(bat.id).all()).results as any[];
-    const aktiv = steg.find((s) => s.steg_status === 'Aktiv') ?? null;
-    const neste = steg.find((s) => s.steg_status === 'Venter') ?? null;
+    const [aktiv = null, neste = null] = await Promise.all(
+      [steg.find((s) => s.steg_status === 'Aktiv'), steg.find((s) => s.steg_status === 'Venter')].map(async (s) =>
+        s ? (await medLinjer(db, [s], 'so_id'))[0] : undefined),
+    );
     return c.json({ modus: 'bat', batanlop: bat, aktiv, neste, antall_steg: steg.length, varer });
   }
-  const ko = (await db.prepare(`${SO_SQL} WHERE s.batanlop_id IS NULL AND s.status!='Ferdig' ORDER BY s.frist LIMIT 3`).all()).results;
+  const ko = await medLinjer(db, (await db.prepare(`${SO_SQL} WHERE s.batanlop_id IS NULL AND s.status!='Ferdig' ORDER BY s.frist LIMIT 3`).all()).results, 'id');
   return c.json({ modus: 'lastebil', ko, varer });
 });
 

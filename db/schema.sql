@@ -3,6 +3,7 @@
 
 
 DROP TABLE IF EXISTS BatLasteplan;
+DROP TABLE IF EXISTS SalgsordreLinjer;
 DROP TABLE IF EXISTS Salgsordrer;
 DROP TABLE IF EXISTS Batanlop;
 DROP TABLE IF EXISTS Varelager;
@@ -52,3 +53,18 @@ CREATE TABLE BatLasteplan (
   ferdig_tidspunkt  TEXT,
   UNIQUE (batanlop_id, rekkefolge_nummer)
 );
+
+-- Hva som faktisk ligger i en SO: bulk (tonn), bigbags eller pallevarer (sekker på pall).
+-- Bigbag/Pall må klargjøres/plukkes; Bulk lastes direkte av hjullaster.
+-- Totalvekt (kg) = antall * kg_per_enhet.
+CREATE TABLE SalgsordreLinjer (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  so_id         INTEGER NOT NULL REFERENCES Salgsordrer(id) ON DELETE CASCADE,
+  produkt       TEXT NOT NULL,                -- f.eks. 'Fint raffinert salt'
+  salttype      TEXT NOT NULL REFERENCES Varelager(salttype),  -- gir fargekode
+  emballasje    TEXT NOT NULL CHECK (emballasje IN ('Bulk', 'Bigbag', 'Pall')),
+  antall        REAL NOT NULL CHECK (antall > 0),  -- tonn (Bulk), stk bigbag, eller antall paller
+  enhet         TEXT NOT NULL,                -- visningstekst: 'tonn', '1000 kg', '40 × 25 kg'
+  kg_per_enhet  REAL NOT NULL                 -- Bulk: 1000 (pr. tonn), Bigbag: 1000/500, Pall: 40×25=1000
+);
+CREATE INDEX idx_linje_so ON SalgsordreLinjer(so_id);

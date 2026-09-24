@@ -27,7 +27,7 @@ Nullstill demodata: knappen «Nullstill demo» i web-panelet, eller `POST /api/a
 
 ## Mobilapp (eget repo)
 
-Sjåførappen bygges i et eget prosjekt/repo og bruker **samme data** via denne Workerens API (`GET /api/sjafor`, `POST /api/lasteplan/:stegId/ferdig`, `POST /api/salgsordrer/:id/ferdig`). D1 kan ikke nås direkte fra en app, så Worker-API-et er den delte kontrakten. CORS er åpent for `/api/*`.
+Sjåførappen bygges i et eget prosjekt/repo og bruker **samme data** via denne Workerens API (`GET /api/sjafor` (SO-er inkluderer `linjer`: bulk/bigbag/pall), `POST /api/lasteplan/:stegId/ferdig`, `POST /api/salgsordrer/:id/ferdig`). D1 kan ikke nås direkte fra en app, så Worker-API-et er den delte kontrakten. CORS er åpent for `/api/*`.
 
 ## Demo-flyt
 
@@ -39,6 +39,6 @@ Sjåførappen bygges i et eget prosjekt/repo og bruker **samme data** via denne 
 
 ## API (utdrag)
 
-`GET /api/dashboard` · `GET/POST /api/batanlop` · `GET /api/batanlop/:id` · `PUT /api/batanlop/:id/lasteplan` · `POST /api/batanlop/:id/start` · `POST /api/lasteplan/:stegId/ferdig` · `GET /api/so-ko` · `CRUD /api/salgsordrer` · `GET /api/sjafor`
+`GET /api/dashboard` · `GET/POST /api/batanlop` · `GET /api/batanlop/:id` · `PUT /api/batanlop/:id/lasteplan` · `POST /api/batanlop/:id/start` · `POST /api/lasteplan/:stegId/ferdig` · `GET /api/so-ko` · `CRUD /api/salgsordrer` · `GET /api/sjafor` (SO-er inkluderer `linjer`: bulk/bigbag/pall)
 
 > MVP har ingen innlogging – ikke eksponer med ekte data uten å legge Cloudflare Access foran.

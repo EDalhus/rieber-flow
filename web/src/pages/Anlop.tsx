@@ -6,7 +6,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api, useApi, fmtDato, fmtTonn, textOn, type Bat, type SO, type Steg } from '../api';
-import { Progress, SaltBadge, StatusPill } from '../ui';
+import { Linjer, Progress, SaltBadge, StatusPill } from '../ui';
 
 // ---------- Liste over båtanløp ----------
 
@@ -58,6 +58,7 @@ function Kort({ so, farge, children, dragProps, style, locked }: any) {
         <div className="row"><b>{so.ordrenummer}</b><b>{fmtTonn(so.tonn)}</b></div>
         <div className="muted">{so.kunde}</div>
         <SaltBadge salttype={so.salttype} farge={farge} />
+        <Linjer linjer={so.linjer} kompakt />
       </div>
       {children}
     </div>
@@ -120,7 +121,7 @@ export function Lasteplan({ id }: { id: number }) {
 
   const nyttSteg = (so: SO): Steg => ({
     steg_id: -so.id, batanlop_id: id, so_id: so.id, rekkefolge_nummer: 0, steg_status: 'Venter',
-    ordrenummer: so.ordrenummer, kunde: so.kunde, salttype: so.salttype, tonn: so.tonn, frist: so.frist, fargekode: so.fargekode,
+    ordrenummer: so.ordrenummer, kunde: so.kunde, salttype: so.salttype, tonn: so.tonn, frist: so.frist, fargekode: so.fargekode, linjer: so.linjer,
   });
 
   function onDragEnd(e: DragEndEvent) {

@@ -6,11 +6,17 @@ export type Bat = {
   status: 'Ventet' | 'Ankommet' | 'Lasting' | 'Ferdig';
   tonn_totalt: number; tonn_lastet: number; antall_steg: number;
 };
+export type Linje = {
+  id: number; so_id: number; produkt: string; salttype: string; fargekode: string;
+  emballasje: 'Bulk' | 'Bigbag' | 'Pall'; antall: number; enhet: string; kg_per_enhet: number;
+};
 export type SO = {
+  linjer?: Linje[];
   id: number; ordrenummer: string; kunde: string; salttype: string; tonn: number;
   frist: string; status: string; batanlop_id: number | null; fargekode: string;
 };
 export type Steg = {
+  linjer?: Linje[];
   steg_id: number; batanlop_id: number; so_id: number; rekkefolge_nummer: number;
   steg_status: 'Venter' | 'Aktiv' | 'Ferdig'; ordrenummer: string; kunde: string;
   salttype: string; tonn: number; frist: string; fargekode: string;

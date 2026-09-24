@@ -12,10 +12,10 @@ INSERT INTO Batanlop (skipsnavn, mmsi, eta, status) VALUES
   ('MS Baltic Trader', '219456700', strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+1 day', '+6 hours'), 'Ventet'),
   ('MV Arctic Breeze', '258987600', strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+3 days'),   'Ventet');
 
--- 10 salgsordrer
+-- 12 salgsordrer
 -- Båt 1 (Nordic Star, 600t): 4 ordrer på tvers av kunder og salttyper
 -- Båt 2 (Baltic Trader):     2 ordrer
--- Ledige ordrer (batanlop_id = NULL): 4 stk, vises i SO-køen og kan dras inn i en lasteplan
+-- Ledige ordrer (batanlop_id = NULL): 6 stk, vises i SO-køen og kan dras inn i en lasteplan
 INSERT INTO Salgsordrer (ordrenummer, kunde, salttype, tonn, frist, status, batanlop_id) VALUES
   ('SO-10041', 'Statens vegvesen Region Nord', 'Veisalt',  200, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+6 hours'),  'Ferdig',        1),
   ('SO-10042', 'Felleskjøpet Agri',            'Landbruk', 150, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+6 hours'),  'Ferdig',        1),
@@ -26,7 +26,9 @@ INSERT INTO Salgsordrer (ordrenummer, kunde, salttype, tonn, frist, status, bata
   ('SO-10061', 'Svalbard Næringsdrift',        'Industri', 300, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+4 days'),   'Ny',            NULL),
   ('SO-10071', 'Bodø Kommune',                 'Veisalt',   32, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+3 hours'),  'Ny',            NULL),
   ('SO-10072', 'Lofoten Landbruk SA',          'Landbruk',  28, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+1 day'),    'Ny',            NULL),
-  ('SO-10073', 'Fauske Entreprenør',           'Veisalt',   40, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+8 hours'),  'Ny',            NULL);
+  ('SO-10073', 'Fauske Entreprenør',           'Veisalt',   40, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+8 hours'),  'Ny',            NULL),
+  ('SO-10074', 'Bakeri Nord AS',               'Industri',   5, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+5 hours'),  'Ny',            NULL),
+  ('SO-10075', 'Nordfisk Sløyeri',             'Industri', 2.5, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+10 hours'), 'Ny',            NULL);
 
 -- Lasteplan for Nordic Star: steg 1-2 ferdig (350 av 600t), steg 3 aktiv, steg 4 venter
 INSERT INTO BatLasteplan (batanlop_id, so_id, rekkefolge_nummer, status, ferdig_tidspunkt) VALUES
@@ -39,3 +41,23 @@ INSERT INTO BatLasteplan (batanlop_id, so_id, rekkefolge_nummer, status, ferdig_
 INSERT INTO BatLasteplan (batanlop_id, so_id, rekkefolge_nummer, status) VALUES
   (2, 5, 1, 'Venter'),
   (2, 6, 2, 'Venter');
+
+-- Innhold i hver SO (sum av linjer = SO.tonn)
+INSERT INTO SalgsordreLinjer (so_id, produkt, salttype, emballasje, antall, enhet, kg_per_enhet) VALUES
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10041'), 'Veisalt', 'Veisalt', 'Bulk', 200, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10042'), 'Grovsalt landbruk', 'Landbruk', 'Bulk', 100, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10042'), 'Grovsalt landbruk', 'Landbruk', 'Bigbag', 50, '1000 kg', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10043'), 'Veisalt', 'Veisalt', 'Bulk', 150, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10044'), 'Industrisalt', 'Industri', 'Bulk', 100, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10051'), 'Veisalt', 'Veisalt', 'Bulk', 400, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10052'), 'Grovsalt landbruk', 'Landbruk', 'Bulk', 250, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10061'), 'Industrisalt', 'Industri', 'Bulk', 200, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10061'), 'Industrisalt', 'Industri', 'Bigbag', 100, '1000 kg', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10071'), 'Veisalt', 'Veisalt', 'Bulk', 32, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10072'), 'Grovsalt landbruk', 'Landbruk', 'Bigbag', 20, '1000 kg', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10072'), 'Fôrsalt', 'Landbruk', 'Pall', 8, '40 × 25 kg', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10073'), 'Veisalt', 'Veisalt', 'Bulk', 40, 'tonn', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10074'), 'Fint raffinert salt', 'Industri', 'Pall', 3, '40 × 25 kg', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10074'), 'Fint raffinert salt', 'Industri', 'Bigbag', 2, '1000 kg', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10075'), 'Nitrittsalt', 'Industri', 'Pall', 2, '40 × 25 kg', 1000),
+  ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10075'), 'Fint raffinert salt', 'Industri', 'Bigbag', 1, '500 kg', 500);
