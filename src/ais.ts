@@ -5,12 +5,12 @@ import { KATALOG, mockSiste, mockSpor } from './mock';
 export type AisEnv = { BARENTSWATCH_CLIENT_ID?: string; BARENTSWATCH_CLIENT_SECRET?: string };
 
 export type Pos = {
-  mmsi: string; navn: string | null; lat: number; lon: number;
+  mmsi: string; imo: string | null; navn: string | null; lat: number; lon: number;
   sog: number | null; cog: number | null; heading: number | null;
   navstatus: number | null; skipstype: number | null;
   destinasjon: string | null; eta: string | null; msgtime: string | null;
 };
-export type Fartoy = { mmsi: string; navn: string; skipstype: number | null };
+export type Fartoy = { mmsi: string; imo: string | null; navn: string; skipstype: number | null };
 
 const LIVE = 'https://live.ais.barentswatch.no';
 const HISTORIC = 'https://historic.ais.barentswatch.no';
@@ -52,7 +52,7 @@ function tilPos(raw: any): Pos | null {
   if (lat == null || lon == null || r?.mmsi == null) return null;
   const heading = num(r.trueHeading);
   return {
-    mmsi: String(r.mmsi), navn: r.name?.trim() || null, lat, lon,
+    mmsi: String(r.mmsi), imo: r.imoNumber ? String(r.imoNumber) : null, navn: r.name?.trim() || null, lat, lon,
     sog: num(r.speedOverGround), cog: num(r.courseOverGround),
     heading: heading != null && heading < 360 ? heading : num(r.courseOverGround),
     navstatus: num(r.navigationalStatus), skipstype: num(r.shipType),
@@ -81,28 +81,52 @@ export async function sistePosisjoner(env: AisEnv, mmsi: string[]): Promise<Map<
   return ut;
 }
 
-/** Søk i alle fartøy med nylig posisjon (listen caches i 10 min – den er stor). */
+/** Alle fartøy med nylig posisjon (stor liste – caches i 10 min). «Full»-modellen har IMO-nummer. */
+async function alleFartoy(env: AisEnv, cache: Cache): Promise<Fartoy[]> {
+  if (!harNokkel(env)) return KATALOG.map((k) => ({ mmsi: k.mmsi, imo: k.imo, navn: k.navn, skipstype: k.skipstype }));
+  const nokkel = new Request('https://cache.rieber-flow.internal/ais-alle-v2');
+  const treff = await cache.match(nokkel);
+  if (treff) return (await treff.json()) as Fartoy[];
+  let r = await bw(env, `${LIVE}/v1/latest/combined?modelType=Full`);
+  if (!r.ok) r = await bw(env, `${LIVE}/v1/latest/combined`);
+  if (!r.ok) throw new Error(`Barentswatch AIS feilet (${r.status})`);
+  const liste = ((await r.json()) as any[]).flatMap((raw) => {
+    const p = tilPos(raw);
+    return p ? [{ mmsi: p.mmsi, imo: p.imo, navn: p.navn ?? '', skipstype: p.skipstype }] : [];
+  });
+  await cache.put(nokkel, new Response(JSON.stringify(liste), { headers: { 'Cache-Control': 'max-age=600', 'Content-Type': 'application/json' } }));
+  return liste;
+}
+
+/** Søk på skipsnavn (alle ord), IMO-nummer (7 siffer, evt. «IMO 1234567») eller MMSI (9 siffer). */
 export async function sokFartoy(env: AisEnv, q: string, cache: Cache): Promise<Fartoy[]> {
-  const t = q.trim().toLowerCase();
+  const t = q.trim().toLowerCase().replace(/^imo[\s:]*/, '').replace(/\s+/g, ' ');
   if (t.length < 2) return [];
-  let liste: Fartoy[];
-  if (!harNokkel(env)) {
-    liste = KATALOG.map((k) => ({ mmsi: k.mmsi, navn: k.navn, skipstype: k.skipstype }));
-  } else {
-    const nokkel = new Request('https://cache.rieber-flow.internal/ais-alle');
-    const treff = await cache.match(nokkel);
-    if (treff) liste = (await treff.json()) as Fartoy[];
-    else {
-      const r = await bw(env, `${LIVE}/v1/latest/combined`);
-      if (!r.ok) throw new Error(`Barentswatch AIS feilet (${r.status})`);
-      liste = ((await r.json()) as any[]).flatMap((raw) => {
-        const p = tilPos(raw);
-        return p && p.navn ? [{ mmsi: p.mmsi, navn: p.navn, skipstype: p.skipstype }] : [];
-      });
-      await cache.put(nokkel, new Response(JSON.stringify(liste), { headers: { 'Cache-Control': 'max-age=600', 'Content-Type': 'application/json' } }));
+  const siffer = /^\d+$/.test(t);
+  const ord = t.split(' ');
+  const liste = await alleFartoy(env, cache);
+
+  const poeng = (f: Fartoy): number => {
+    const navn = f.navn.toLowerCase();
+    if (siffer) {
+      if (f.imo === t || f.mmsi === t) return 100;
+      if (f.imo?.startsWith(t) || f.mmsi.startsWith(t)) return 50;
+      return 0;
     }
+    if (navn === t) return 100;
+    if (navn.startsWith(t)) return 80;
+    if (ord.every((o) => navn.includes(o))) return 50;
+    return 0;
+  };
+  const treff = liste.map((f) => ({ f, p: poeng(f) })).filter((x) => x.p > 0)
+    .sort((a, b) => b.p - a.p || a.f.navn.localeCompare(b.f.navn)).slice(0, 20).map((x) => x.f);
+
+  // Nøyaktig MMSI som ikke ligger i listen: slå opp direkte (fartøyet kan ha nylig posisjon likevel)
+  if (harNokkel(env) && /^\d{9}$/.test(t) && !treff.some((f) => f.mmsi === t)) {
+    const p = (await sistePosisjoner(env, [t]).catch(() => new Map<string, Pos>())).get(t);
+    if (p) treff.unshift({ mmsi: p.mmsi, imo: p.imo, navn: p.navn ?? `MMSI ${p.mmsi}`, skipstype: p.skipstype });
   }
-  return liste.filter((f) => f.navn.toLowerCase().includes(t) || f.mmsi.startsWith(t)).slice(0, 20);
+  return treff;
 }
 
 /** Siste 24 timers spor. */

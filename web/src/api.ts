@@ -88,7 +88,7 @@ export function textOn(hex: string) {
 }
 
 export type Posisjon = {
-  mmsi: string; navn: string | null; lat: number; lon: number; sog: number | null; cog: number | null; heading: number | null;
+  mmsi: string; imo?: string | null; navn: string | null; lat: number; lon: number; sog: number | null; cog: number | null; heading: number | null;
   destinasjon: string | null; eta: string | null; msgtime: string | null;
 };
 export type FlateFartoy = { mmsi: string; navn: string; posisjon: Posisjon | null };

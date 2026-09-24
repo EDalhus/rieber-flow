@@ -76,7 +76,7 @@ export function Flate() {
   const [valgt, setValgt] = useState<string | null>(null);
   const [spor, setSpor] = useState<[number, number][]>([]);
   const [q, setQ] = useState('');
-  const [treff, setTreff] = useState<{ mmsi: string; navn: string }[]>([]);
+  const [treff, setTreff] = useState<{ mmsi: string; imo: string | null; navn: string }[]>([]);
   const [feil, setFeil] = useState<string | null>(null);
   const [diag, setDiag] = useState<Record<string, unknown> | null>(null);
 
@@ -88,7 +88,7 @@ export function Flate() {
   useEffect(() => {
     if (q.trim().length < 2) { setTreff([]); return; }
     const t = setTimeout(() => {
-      api<{ treff: { mmsi: string; navn: string }[] }>(`/ais/sok?q=${encodeURIComponent(q)}`)
+      api<{ treff: { mmsi: string; imo: string | null; navn: string }[] }>(`/ais/sok?q=${encodeURIComponent(q)}`)
         .then((r) => { setTreff(r.treff); setFeil(null); })
         .catch((e) => setFeil((e as Error).message));
     }, 300);
@@ -153,7 +153,7 @@ export function Flate() {
           {valgtF?.posisjon && (
             <div className="detalj">
               <b>{valgtF.navn}</b>
-              <span>MMSI {valgtF.mmsi}</span>
+              <span>{valgtF.posisjon.imo ? `IMO ${valgtF.posisjon.imo} · ` : ''}MMSI {valgtF.mmsi}</span>
               <span>Fart {kn(valgtF.posisjon.sog)} · kurs {valgtF.posisjon.cog != null ? `${Math.round(valgtF.posisjon.cog)}°` : '–'}</span>
               {valgtF.posisjon.destinasjon && <span>Destinasjon {valgtF.posisjon.destinasjon}</span>}
               {valgtF.posisjon.eta && <span>ETA {fmtDato(valgtF.posisjon.eta)}</span>}
@@ -163,11 +163,11 @@ export function Flate() {
           )}
 
           <h3 className="topp-luft">Legg til båt</h3>
-          <input className="wide-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søk skipsnavn eller MMSI" />
+          <input className="wide-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søk skipsnavn, IMO- eller MMSI-nummer" />
           <ul className="list treff">
             {treff.map((t) => (
               <li key={t.mmsi}>
-                <span className="li-main"><b>{t.navn}</b><small>MMSI {t.mmsi}</small></span>
+                <span className="li-main"><b>{t.navn}</b><small>{t.imo ? `IMO ${t.imo} · ` : ''}MMSI {t.mmsi}</small></span>
                 {iFlate.has(t.mmsi) ? <span className="muted">I flåten</span> : <button className="btn ghost sm" onClick={() => leggTil(t.mmsi, t.navn)}>+ Legg til</button>}
               </li>
             ))}

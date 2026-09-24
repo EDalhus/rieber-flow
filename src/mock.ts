@@ -9,17 +9,17 @@ const OSLOFJORD: Rute = [[59.0, 10.4], [58.6, 9.9], [58.0, 8.6], [57.9, 7.0], [5
 const NORDLAND: Rute = [[67.28, 13.6], [67.9, 13.6], [68.6, 14.6], [69.3, 16.3], [69.9, 18.7]];
 const MIDT: Rute = [[62.6, 5.6], [63.2, 7.0], [63.7, 8.9], [64.4, 9.9], [65.0, 10.6]];
 
-export type MockFartoy = { mmsi: string; navn: string; rute: Rute; periodeTimer: number; forskyvning: number; destinasjon: string; skipstype: number; sog: number };
+export type MockFartoy = { mmsi: string; imo: string; navn: string; rute: Rute; periodeTimer: number; forskyvning: number; destinasjon: string; skipstype: number; sog: number };
 
 export const KATALOG: MockFartoy[] = [
-  { mmsi: '257123400', navn: 'MV NORDIC STAR', rute: MIDT, periodeTimer: 9, forskyvning: 0.1, destinasjon: 'NOKRS', skipstype: 70, sog: 11 },
-  { mmsi: '219456700', navn: 'MS BALTIC TRADER', rute: OSLOFJORD, periodeTimer: 14, forskyvning: 0.55, destinasjon: 'NOOSL', skipstype: 70, sog: 12 },
-  { mmsi: '258987600', navn: 'MV ARCTIC BREEZE', rute: SOR_NORD, periodeTimer: 60, forskyvning: 0.3, destinasjon: 'NOHFT', skipstype: 70, sog: 13 },
-  { mmsi: '257555100', navn: 'MV SALT CARRIER', rute: NORDLAND, periodeTimer: 10, forskyvning: 0.8, destinasjon: 'NOBOO', skipstype: 70, sog: 9 },
-  { mmsi: '257600001', navn: 'MS KYSTLINJE', rute: SOR_NORD, periodeTimer: 70, forskyvning: 0.75, destinasjon: 'NOTOS', skipstype: 60, sog: 15 },
-  { mmsi: '257600002', navn: 'MV FJORDBULK', rute: OSLOFJORD, periodeTimer: 16, forskyvning: 0.2, destinasjon: 'NOKRS', skipstype: 70, sog: 10 },
-  { mmsi: '257600003', navn: 'MS NORDLYS EXPRESS', rute: NORDLAND, periodeTimer: 12, forskyvning: 0.4, destinasjon: 'NOTOS', skipstype: 60, sog: 17 },
-  { mmsi: '257600004', navn: 'MV HAVBRIS', rute: MIDT, periodeTimer: 8, forskyvning: 0.9, destinasjon: 'NOTRD', skipstype: 70, sog: 10 },
+  { mmsi: '257123400', imo: '9100001', navn: 'MV NORDIC STAR', rute: MIDT, periodeTimer: 9, forskyvning: 0.1, destinasjon: 'NOKRS', skipstype: 70, sog: 11 },
+  { mmsi: '219456700', imo: '9100002', navn: 'MS BALTIC TRADER', rute: OSLOFJORD, periodeTimer: 14, forskyvning: 0.55, destinasjon: 'NOOSL', skipstype: 70, sog: 12 },
+  { mmsi: '258987600', imo: '9100003', navn: 'MV ARCTIC BREEZE', rute: SOR_NORD, periodeTimer: 60, forskyvning: 0.3, destinasjon: 'NOHFT', skipstype: 70, sog: 13 },
+  { mmsi: '257555100', imo: '9100004', navn: 'MV SALT CARRIER', rute: NORDLAND, periodeTimer: 10, forskyvning: 0.8, destinasjon: 'NOBOO', skipstype: 70, sog: 9 },
+  { mmsi: '257600001', imo: '9100005', navn: 'MS KYSTLINJE', rute: SOR_NORD, periodeTimer: 70, forskyvning: 0.75, destinasjon: 'NOTOS', skipstype: 60, sog: 15 },
+  { mmsi: '257600002', imo: '9100006', navn: 'MV FJORDBULK', rute: OSLOFJORD, periodeTimer: 16, forskyvning: 0.2, destinasjon: 'NOKRS', skipstype: 70, sog: 10 },
+  { mmsi: '257600003', imo: '9100007', navn: 'MS NORDLYS EXPRESS', rute: NORDLAND, periodeTimer: 12, forskyvning: 0.4, destinasjon: 'NOTOS', skipstype: 60, sog: 17 },
+  { mmsi: '257600004', imo: '9100008', navn: 'MV HAVBRIS', rute: MIDT, periodeTimer: 8, forskyvning: 0.9, destinasjon: 'NOTRD', skipstype: 70, sog: 10 },
 ];
 
 const bearing = (a: [number, number], b: [number, number]) => {
@@ -40,7 +40,7 @@ export function mockPos(f: MockFartoy, tid: number): Pos {
   const a = rute[i], b = rute[i + 1];
   const retning = fase < 0.5 ? bearing(a, b) : bearing(b, a);
   return {
-    mmsi: f.mmsi, navn: f.navn,
+    mmsi: f.mmsi, imo: f.imo, navn: f.navn,
     lat: a[0] + (b[0] - a[0]) * u, lon: a[1] + (b[1] - a[1]) * u,
     sog: f.sog, cog: retning, heading: retning, navstatus: 0, skipstype: f.skipstype,
     destinasjon: f.destinasjon, eta: null, msgtime: new Date(tid).toISOString(),
