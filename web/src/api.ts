@@ -21,10 +21,6 @@ export type Dashboard = {
   perioder: { dager: number; bigbags: number; salgTonn: number }[];
   produksjonPerDag: { dato: string; bigbags: number }[];
 };
-export type Sjafor =
-  | { modus: 'bat'; batanlop: Bat; aktiv: Steg | null; neste: Steg | null; antall_steg: number; varer: Salt[] }
-  | { modus: 'lastebil'; ko: SO[]; varer: Salt[] };
-
 export async function api<T = unknown>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const r = await fetch(`/api${path}`, {
     method,

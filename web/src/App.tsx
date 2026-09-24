@@ -3,7 +3,8 @@ import { api } from './api';
 import { Dashboard } from './pages/Dashboard';
 import { Anlop, Lasteplan } from './pages/Anlop';
 import { SoKo } from './pages/SoKo';
-import { Sjafor } from './pages/Sjafor';
+import { Search } from './Search';
+import { IconDashboard, IconList, IconShip, Logo } from './icons';
 
 function useHash() {
   const [h, setH] = useState(location.hash.slice(1) || '/');
@@ -16,10 +17,9 @@ function useHash() {
 }
 
 const NAV = [
-  ['/', 'Dashboard'],
-  ['/anlop', 'Båtanløp'],
-  ['/so-ko', 'SO-kø'],
-  ['/sjafor', 'Sjåfør-visning'],
+  ['/', 'Dashboard', <IconDashboard />],
+  ['/anlop', 'Båtanløp', <IconShip />],
+  ['/so-ko', 'SO-kø', <IconList />],
 ] as const;
 
 export function App() {
@@ -29,35 +29,45 @@ export function App() {
   if (m) page = <Lasteplan id={+m[1]} />;
   else if (path.startsWith('/anlop')) page = <Anlop />;
   else if (path.startsWith('/so-ko')) page = <SoKo />;
-  else if (path.startsWith('/sjafor')) page = <Sjafor />;
   else page = <Dashboard />;
 
   return (
-    <div className="layout">
+    <div className="shell">
       <aside className="sidebar">
-        <div className="brand">
-          <span className="logo">≋</span> Rieber <b>Flow</b>
-        </div>
+        <a href="#/" className="brand"><Logo /> Rieber Flow</a>
+        <div className="nav-label">MENY</div>
         <nav>
-          {NAV.map(([to, label]) => (
+          {NAV.map(([to, label, icon]) => (
             <a key={to} href={`#${to}`} className={(to === '/' ? path === '/' : path.startsWith(to)) ? 'active' : ''}>
-              {label}
+              {icon} {label}
             </a>
           ))}
         </nav>
-        <button
-          className="reset"
-          onClick={async () => {
-            if (confirm('Nullstill all demodata?')) {
-              await api('/admin/reset', 'POST');
-              location.reload();
-            }
-          }}
-        >
-          Nullstill demo
-        </button>
+        <div className="promo">
+          <b>Sjåførappen</b>
+          <p>Hjullasterne følger lasteplanen live. Endringer her vises i appen innen sekunder.</p>
+          <button
+            onClick={async () => {
+              if (confirm('Nullstill all demodata?')) {
+                await api('/admin/reset', 'POST');
+                location.reload();
+              }
+            }}
+          >
+            Nullstill demo
+          </button>
+        </div>
       </aside>
-      <main>{page}</main>
+      <div className="col">
+        <header className="topbar">
+          <Search />
+          <div className="user">
+            <span className="avatar">TF</span>
+            <div><b>Terminalformann</b><small>Kontor · Rieber Flow</small></div>
+          </div>
+        </header>
+        <main>{page}</main>
+      </div>
     </div>
   );
 }
