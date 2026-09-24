@@ -1,0 +1,273 @@
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { ensureDb, resetDb } from './db';
+
+type Env = { Bindings: { DB: D1Database; ASSETS: Fetcher } };
+
+const app = new Hono<Env>();
+app.use('/api/*', cors());
+app.use('/api/*', async (c, next) => {
+  await ensureDb(c.env.DB);
+  await next();
+});
+
+const now = () => new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+
+// ---------- Varelager / dashboard ----------
+
+app.get('/api/varelager', async (c) => {
+  const { results } = await c.env.DB.prepare('SELECT * FROM Varelager ORDER BY id').all();
+  return c.json(results);
+});
+
+// Mock-statistikk: deterministisk pseudo-produksjon pr. dag (bigbags) og salg (tonn).
+function dagsverdi(dagerSiden: number, seed: number, base: number, spenn: number) {
+  const x = Math.sin((dagerSiden + 1) * 12.9898 + seed * 78.233) * 43758.5453;
+  return Math.round(base + (x - Math.floor(x)) * spenn);
+}
+
+app.get('/api/dashboard', async (c) => {
+  const varer = (await c.env.DB.prepare('SELECT * FROM Varelager ORDER BY id').all()).results as any[];
+  const perioder = [1, 3, 7, 30, 90, 365].map((dager) => {
+    let bigbags = 0;
+    let salgTonn = 0;
+    for (let d = 0; d < dager; d++) {
+      bigbags += dagsverdi(d, 1, 60, 50);
+      salgTonn += dagsverdi(d, 2, 220, 260);
+    }
+    return { dager, bigbags, salgTonn };
+  });
+  const produksjonPerDag = Array.from({ length: 30 }, (_, i) => {
+    const d = 29 - i;
+    const dato = new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
+    return { dato, bigbags: dagsverdi(d, 1, 60, 50) };
+  });
+  const totalt = {
+    tonn_bulk: varer.reduce((s, v) => s + v.tonn_bulk, 0),
+    antall_bigbags: varer.reduce((s, v) => s + v.antall_bigbags, 0),
+  };
+  return c.json({ varer, totalt, perioder, produksjonPerDag });
+});
+
+// ---------- Båtanløp ----------
+
+const BAT_SQL = `
+  SELECT b.*,
+    COALESCE((SELECT SUM(s.tonn) FROM BatLasteplan l JOIN Salgsordrer s ON s.id=l.so_id WHERE l.batanlop_id=b.id),0) AS tonn_totalt,
+    COALESCE((SELECT SUM(s.tonn) FROM BatLasteplan l JOIN Salgsordrer s ON s.id=l.so_id WHERE l.batanlop_id=b.id AND l.status='Ferdig'),0) AS tonn_lastet,
+    (SELECT COUNT(*) FROM BatLasteplan l WHERE l.batanlop_id=b.id) AS antall_steg
+  FROM Batanlop b`;
+
+app.get('/api/batanlop', async (c) => {
+  const { results } = await c.env.DB.prepare(`${BAT_SQL} ORDER BY b.eta`).all();
+  return c.json(results);
+});
+
+app.post('/api/batanlop', async (c) => {
+  const b = await c.req.json<{ skipsnavn: string; eta: string; mmsi?: string }>();
+  if (!b.skipsnavn || !b.eta) return c.json({ error: 'skipsnavn og eta kreves' }, 400);
+  const r = await c.env.DB.prepare('INSERT INTO Batanlop (skipsnavn, mmsi, eta) VALUES (?,?,?)')
+    .bind(b.skipsnavn, b.mmsi ?? null, b.eta).run();
+  return c.json({ id: r.meta.last_row_id }, 201);
+});
+
+app.patch('/api/batanlop/:id', async (c) => {
+  const id = +c.req.param('id');
+  const b = await c.req.json<{ skipsnavn?: string; eta?: string; status?: string }>();
+  await c.env.DB.prepare(
+    'UPDATE Batanlop SET skipsnavn=COALESCE(?,skipsnavn), eta=COALESCE(?,eta), status=COALESCE(?,status) WHERE id=?',
+  ).bind(b.skipsnavn ?? null, b.eta ?? null, b.status ?? null, id).run();
+  return c.json({ ok: true });
+});
+
+app.delete('/api/batanlop/:id', async (c) => {
+  const id = +c.req.param('id');
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE Salgsordrer SET batanlop_id=NULL, status='Ny' WHERE batanlop_id=? AND status!='Ferdig'").bind(id),
+    c.env.DB.prepare('DELETE FROM Batanlop WHERE id=?').bind(id),
+  ]);
+  return c.json({ ok: true });
+});
+
+const STEG_SQL = `
+  SELECT l.id AS steg_id, l.batanlop_id, l.so_id, l.rekkefolge_nummer, l.status AS steg_status, l.ferdig_tidspunkt,
+         s.ordrenummer, s.kunde, s.salttype, s.tonn, s.frist, v.fargekode
+  FROM BatLasteplan l
+  JOIN Salgsordrer s ON s.id=l.so_id
+  JOIN Varelager v ON v.salttype=s.salttype`;
+
+app.get('/api/batanlop/:id', async (c) => {
+  const id = +c.req.param('id');
+  const batanlop = await c.env.DB.prepare(`${BAT_SQL} WHERE b.id=?`).bind(id).first();
+  if (!batanlop) return c.json({ error: 'Ikke funnet' }, 404);
+  const { results: steg } = await c.env.DB.prepare(`${STEG_SQL} WHERE l.batanlop_id=? ORDER BY l.rekkefolge_nummer`).bind(id).all();
+  return c.json({ batanlop, steg });
+});
+
+/** Erstatter lasteplanen med gitt rekkefølge av SO-er. Ferdige steg beholder status. */
+app.put('/api/batanlop/:id/lasteplan', async (c) => {
+  const id = +c.req.param('id');
+  const { so_ids } = await c.req.json<{ so_ids: number[] }>();
+  const db = c.env.DB;
+  const bat = await db.prepare('SELECT status FROM Batanlop WHERE id=?').bind(id).first<{ status: string }>();
+  if (!bat) return c.json({ error: 'Ikke funnet' }, 404);
+
+  const { results: eksisterende } = await db
+    .prepare('SELECT so_id, status FROM BatLasteplan WHERE batanlop_id=?').bind(id).all<{ so_id: number; status: string }>();
+  const gammel = new Map(eksisterende.map((e) => [e.so_id, e.status]));
+  // Ferdige steg er låst og må beholdes først i sekvensen
+  const ferdige = eksisterende.filter((e) => e.status === 'Ferdig').map((e) => e.so_id);
+  const rekkefolge = [...ferdige, ...so_ids.filter((s) => !ferdige.includes(s))];
+  const fjernet = eksisterende.map((e) => e.so_id).filter((s) => !rekkefolge.includes(s));
+
+  const forsteAktive = bat.status === 'Lasting' ? rekkefolge.find((s) => gammel.get(s) !== 'Ferdig') : undefined;
+  const stmts: D1PreparedStatement[] = [db.prepare('DELETE FROM BatLasteplan WHERE batanlop_id=?').bind(id)];
+  for (const s of fjernet) {
+    stmts.push(db.prepare("UPDATE Salgsordrer SET batanlop_id=NULL, status='Ny' WHERE id=?").bind(s));
+  }
+  rekkefolge.forEach((so, i) => {
+    const status = gammel.get(so) === 'Ferdig' ? 'Ferdig' : so === forsteAktive ? 'Aktiv' : 'Venter';
+    stmts.push(
+      db.prepare('INSERT INTO BatLasteplan (batanlop_id, so_id, rekkefolge_nummer, status) VALUES (?,?,?,?)').bind(id, so, i + 1, status),
+      db.prepare('UPDATE Salgsordrer SET batanlop_id=?, status=? WHERE id=?')
+        .bind(id, status === 'Ferdig' ? 'Ferdig' : status === 'Aktiv' ? 'Under lasting' : 'Planlagt', so),
+    );
+  });
+  await db.batch(stmts);
+  return c.json({ ok: true });
+});
+
+/** Start lasting: båten settes til Lasting og første ikke-ferdige steg blir Aktiv. */
+app.post('/api/batanlop/:id/start', async (c) => {
+  const id = +c.req.param('id');
+  const db = c.env.DB;
+  const neste = await db
+    .prepare("SELECT id, so_id FROM BatLasteplan WHERE batanlop_id=? AND status!='Ferdig' ORDER BY rekkefolge_nummer LIMIT 1")
+    .bind(id).first<{ id: number; so_id: number }>();
+  if (!neste) return c.json({ error: 'Lasteplanen er tom eller ferdig' }, 400);
+  // Kun én båt kan lastes av gangen – stopp evt. andre
+  await db.batch([
+    db.prepare("UPDATE Batanlop SET status='Ankommet' WHERE status='Lasting' AND id!=?").bind(id),
+    db.prepare("UPDATE Batanlop SET status='Lasting' WHERE id=?").bind(id),
+    db.prepare("UPDATE BatLasteplan SET status='Aktiv' WHERE id=?").bind(neste.id),
+    db.prepare("UPDATE Salgsordrer SET status='Under lasting' WHERE id=?").bind(neste.so_id),
+  ]);
+  return c.json({ ok: true });
+});
+
+/** Marker steg ferdig → trekk fra lager, aktiver neste steg, avslutt båt hvis siste. */
+app.post('/api/lasteplan/:stegId/ferdig', async (c) => {
+  const stegId = +c.req.param('stegId');
+  const db = c.env.DB;
+  const steg = await db.prepare(
+    `SELECT l.id, l.batanlop_id, l.so_id, l.status, s.salttype, s.tonn
+     FROM BatLasteplan l JOIN Salgsordrer s ON s.id=l.so_id WHERE l.id=?`,
+  ).bind(stegId).first<any>();
+  if (!steg) return c.json({ error: 'Ikke funnet' }, 404);
+  if (steg.status === 'Ferdig') return c.json({ ok: true });
+
+  const neste = await db
+    .prepare("SELECT id, so_id FROM BatLasteplan WHERE batanlop_id=? AND status='Venter' AND id!=? ORDER BY rekkefolge_nummer LIMIT 1")
+    .bind(steg.batanlop_id, stegId).first<{ id: number; so_id: number }>();
+  const stmts = [
+    db.prepare("UPDATE BatLasteplan SET status='Ferdig', ferdig_tidspunkt=? WHERE id=?").bind(now(), stegId),
+    db.prepare("UPDATE Salgsordrer SET status='Ferdig' WHERE id=?").bind(steg.so_id),
+    db.prepare('UPDATE Varelager SET tonn_bulk=MAX(0, tonn_bulk-?) WHERE salttype=?').bind(steg.tonn, steg.salttype),
+  ];
+  if (neste) {
+    stmts.push(
+      db.prepare("UPDATE BatLasteplan SET status='Aktiv' WHERE id=?").bind(neste.id),
+      db.prepare("UPDATE Salgsordrer SET status='Under lasting' WHERE id=?").bind(neste.so_id),
+    );
+  } else {
+    stmts.push(db.prepare("UPDATE Batanlop SET status='Ferdig' WHERE id=?").bind(steg.batanlop_id));
+  }
+  await db.batch(stmts);
+  return c.json({ ok: true });
+});
+
+// ---------- Salgsordrer ----------
+
+const SO_SQL = `SELECT s.*, v.fargekode FROM Salgsordrer s JOIN Varelager v ON v.salttype=s.salttype`;
+
+app.get('/api/salgsordrer', async (c) => {
+  const { results } = await c.env.DB.prepare(`${SO_SQL} ORDER BY s.frist`).all();
+  return c.json(results);
+});
+
+/** SO-kø: ordrer uten båt (lastebil), ikke ferdige, kortest frist først. */
+app.get('/api/so-ko', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `${SO_SQL} WHERE s.batanlop_id IS NULL AND s.status!='Ferdig' ORDER BY s.frist ASC`,
+  ).all();
+  return c.json(results);
+});
+
+app.post('/api/salgsordrer', async (c) => {
+  const b = await c.req.json<{ ordrenummer: string; kunde: string; salttype: string; tonn: number; frist: string }>();
+  if (!b.ordrenummer || !b.kunde || !b.salttype || !(b.tonn > 0) || !b.frist) return c.json({ error: 'Ugyldig ordre' }, 400);
+  const r = await c.env.DB.prepare('INSERT INTO Salgsordrer (ordrenummer, kunde, salttype, tonn, frist) VALUES (?,?,?,?,?)')
+    .bind(b.ordrenummer, b.kunde, b.salttype, b.tonn, b.frist).run();
+  return c.json({ id: r.meta.last_row_id }, 201);
+});
+
+app.patch('/api/salgsordrer/:id', async (c) => {
+  const id = +c.req.param('id');
+  const b = await c.req.json<{ kunde?: string; salttype?: string; tonn?: number; frist?: string; status?: string }>();
+  await c.env.DB.prepare(
+    `UPDATE Salgsordrer SET kunde=COALESCE(?,kunde), salttype=COALESCE(?,salttype), tonn=COALESCE(?,tonn),
+     frist=COALESCE(?,frist), status=COALESCE(?,status) WHERE id=?`,
+  ).bind(b.kunde ?? null, b.salttype ?? null, b.tonn ?? null, b.frist ?? null, b.status ?? null, id).run();
+  return c.json({ ok: true });
+});
+
+app.delete('/api/salgsordrer/:id', async (c) => {
+  await c.env.DB.prepare('DELETE FROM Salgsordrer WHERE id=?').bind(+c.req.param('id')).run();
+  return c.json({ ok: true });
+});
+
+/** Lastebil-ordre ferdig (fjernes fra køen, trekkes fra lager). */
+app.post('/api/salgsordrer/:id/ferdig', async (c) => {
+  const id = +c.req.param('id');
+  const so = await c.env.DB.prepare('SELECT salttype, tonn, status FROM Salgsordrer WHERE id=?').bind(id).first<any>();
+  if (!so) return c.json({ error: 'Ikke funnet' }, 404);
+  if (so.status !== 'Ferdig') {
+    await c.env.DB.batch([
+      c.env.DB.prepare("UPDATE Salgsordrer SET status='Ferdig' WHERE id=?").bind(id),
+      c.env.DB.prepare('UPDATE Varelager SET tonn_bulk=MAX(0, tonn_bulk-?) WHERE salttype=?').bind(so.tonn, so.salttype),
+    ]);
+  }
+  return c.json({ ok: true });
+});
+
+// ---------- Sjåfør / Kjøre-modus ----------
+
+/** Alt mobilappen trenger i ett kall. Båt-modus overstyrer alt annet. */
+app.get('/api/sjafor', async (c) => {
+  const db = c.env.DB;
+  const bat = await db.prepare(`${BAT_SQL} WHERE b.status='Lasting' ORDER BY b.eta LIMIT 1`).first<any>();
+  const varer = (await db.prepare('SELECT * FROM Varelager ORDER BY id').all()).results;
+  if (bat) {
+    const steg = (await db.prepare(`${STEG_SQL} WHERE l.batanlop_id=? ORDER BY l.rekkefolge_nummer`).bind(bat.id).all()).results as any[];
+    const aktiv = steg.find((s) => s.steg_status === 'Aktiv') ?? null;
+    const neste = steg.find((s) => s.steg_status === 'Venter') ?? null;
+    return c.json({ modus: 'bat', batanlop: bat, aktiv, neste, antall_steg: steg.length, varer });
+  }
+  const ko = (await db.prepare(`${SO_SQL} WHERE s.batanlop_id IS NULL AND s.status!='Ferdig' ORDER BY s.frist LIMIT 3`).all()).results;
+  return c.json({ modus: 'lastebil', ko, varer });
+});
+
+// ---------- Demo ----------
+
+app.post('/api/admin/reset', async (c) => {
+  await resetDb(c.env.DB);
+  return c.json({ ok: true });
+});
+
+app.notFound((c) => (c.req.path.startsWith('/api/') ? c.json({ error: 'Ikke funnet' }, 404) : c.env.ASSETS.fetch(c.req.raw)));
+app.onError((e, c) => {
+  console.error(e);
+  return c.json({ error: e.message }, 500);
+});
+
+export default app;
