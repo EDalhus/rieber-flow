@@ -1,0 +1,3 @@
+# Kopier til .dev.vars for lokal utvikling (filen er gitignored)
+BARENTSWATCH_CLIENT_ID=
+BARENTSWATCH_CLIENT_SECRET=

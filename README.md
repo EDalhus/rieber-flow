@@ -36,6 +36,16 @@ Dashboardet er et 12-kolonners grid ([react-grid-layout](https://github.com/reac
 - **Ny widget:** legg til én oppføring i `WIDGETS` i [web/src/widgets.tsx](web/src/widgets.tsx) – den dukker automatisk opp under «Legg til widget».
 - **Innlogging:** identiteten hentes fra Cloudflare Access (`Cf-Access-Authenticated-User-Email`) når det er slått på (Zero Trust → Access → legg Worker-en bak en policy). Uten Access velger man demo-bruker i toppfeltet (`X-Demo-User`) – dette kan forfalskes og er kun til demo.
 
+## Flåte & kart (AIS fra Kystverket via Barentswatch)
+
+Fanen **Flåte & kart** viser et kart over Norge (Kartverket) der bare båtene i *din* flåte vises. Flåten lagres per bruker i D1 (`Flate`). Legg til båter via søk (skipsnavn/MMSI) eller fra båtanløpene; klikk en båt for detaljer og siste 24 timers spor.
+
+**Ekte AIS-data:**
+1. Registrer en **AIS-klient** på [barentswatch.no/minside](https://www.barentswatch.no/minside/) (velg «AIS-client»).
+2. Sett hemmelighetene på Worker-en: `npx wrangler secret put BARENTSWATCH_CLIENT_ID` og `... BARENTSWATCH_CLIENT_SECRET` (eller Cloudflare Dashboard → Worker → Settings → Variables and Secrets). Lokalt: kopier `.dev.vars.example` til `.dev.vars`.
+
+Uten nøkler vises **simulerte posisjoner** langs kysten (merket i UI-et), slik at demoen fungerer uten konto. Demo-flåten bruker plassholder-MMSI-er – i live-modus finner du ekte fartøy via søket. Dekning: norsk økonomisk sone, Svalbard og Jan Mayen; fiskefartøy under 15 m og fritidsbåter under 45 m er ikke med. Se [Barentswatch AIS-dokumentasjon](https://developer.barentswatch.no/docs/AIS/live-ais-api).
+
 ## Demo-flyt
 
 1. **Dashboard:** on-hand pr. salttype, produksjon og salg.

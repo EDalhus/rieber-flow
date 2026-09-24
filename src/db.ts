@@ -6,7 +6,7 @@ let ready: Promise<void> | null = null;
 export function ensureDb(db: D1Database): Promise<void> {
   ready ??= (async () => {
     // Sjekk nyeste tabell – mangler den, er databasen laget av en eldre schema-versjon
-    const t = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='DashboardLayout'").first();
+    const t = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='Flate'").first();
     if (!t) await resetDb(db);
   })().catch((e) => {
     ready = null;

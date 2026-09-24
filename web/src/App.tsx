@@ -3,8 +3,9 @@ import { api, useApi, type Meg } from './api';
 import { Dashboard } from './pages/Dashboard';
 import { Anlop, Lasteplan } from './pages/Anlop';
 import { SoKo } from './pages/SoKo';
+import { Flate } from './pages/Flate';
 import { Search } from './Search';
-import { IconDashboard, IconList, IconShip, Logo } from './icons';
+import { IconDashboard, IconList, IconMap, IconShip, Logo } from './icons';
 
 function useHash() {
   const [h, setH] = useState(location.hash.slice(1) || '/');
@@ -20,6 +21,7 @@ const NAV = [
   ['/', 'Dashboard', <IconDashboard />],
   ['/anlop', 'Båtanløp', <IconShip />],
   ['/so-ko', 'SO-kø', <IconList />],
+  ['/flate', 'Flåte & kart', <IconMap />],
 ] as const;
 
 function Bruker() {
@@ -54,6 +56,7 @@ export function App() {
   if (m) page = <Lasteplan id={+m[1]} />;
   else if (path.startsWith('/anlop')) page = <Anlop />;
   else if (path.startsWith('/so-ko')) page = <SoKo />;
+  else if (path.startsWith('/flate')) page = <Flate />;
   else page = <Dashboard />;
 
   return (

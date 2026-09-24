@@ -86,3 +86,10 @@ export function textOn(hex: string) {
   const l = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
   return l > 150 ? '#111' : '#fff';
 }
+
+export type Posisjon = {
+  mmsi: string; navn: string | null; lat: number; lon: number; sog: number | null; cog: number | null; heading: number | null;
+  destinasjon: string | null; eta: string | null; msgtime: string | null;
+};
+export type FlateFartoy = { mmsi: string; navn: string; posisjon: Posisjon | null };
+export type FlateSvar = { kilde: 'ais' | 'simulert'; feil: string | null; fartoy: FlateFartoy[] };

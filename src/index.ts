@@ -1,8 +1,9 @@
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { ensureDb, resetDb } from './db';
+import { kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
 
-type Env = { Bindings: { DB: D1Database; ASSETS: Fetcher } };
+type Env = { Bindings: { DB: D1Database; ASSETS: Fetcher } & AisEnv };
 
 const app = new Hono<Env>();
 app.use('/api/*', cors());
@@ -346,6 +347,56 @@ app.delete('/api/meg/dashboard', async (c) => {
   const { bruker } = await hentBruker(c);
   await c.env.DB.prepare('DELETE FROM DashboardLayout WHERE bruker_id=?').bind(bruker.id).run();
   return c.json({ ok: true });
+});
+
+// ---------- Flåte + kart (Barentswatch AIS) ----------
+
+/** Brukerens flåte med siste kjente posisjon. Kun disse fartøyene sendes til kartet. */
+app.get('/api/flate', async (c) => {
+  const { bruker } = await hentBruker(c);
+  const { results } = await c.env.DB.prepare('SELECT mmsi, navn FROM Flate WHERE bruker_id=? ORDER BY lagt_til, navn').bind(bruker.id).all<{ mmsi: string; navn: string }>();
+  let posisjoner = new Map<string, any>();
+  let feil: string | null = null;
+  try {
+    posisjoner = await sistePosisjoner(c.env, results.map((r) => r.mmsi));
+  } catch (e) {
+    feil = (e as Error).message;
+  }
+  return c.json({
+    kilde: kilde(c.env), feil,
+    fartoy: results.map((r) => ({ ...r, posisjon: posisjoner.get(r.mmsi) ?? null })),
+  });
+});
+
+app.post('/api/flate', async (c) => {
+  const { bruker } = await hentBruker(c);
+  const b = await c.req.json<{ mmsi: string; navn?: string }>();
+  if (!/^\d{9}$/.test(b.mmsi ?? '')) return c.json({ error: 'MMSI må være 9 siffer' }, 400);
+  await c.env.DB.prepare('INSERT OR IGNORE INTO Flate (bruker_id, mmsi, navn, lagt_til) VALUES (?,?,?,?)')
+    .bind(bruker.id, b.mmsi, (b.navn ?? '').trim() || `MMSI ${b.mmsi}`, now()).run();
+  return c.json({ ok: true }, 201);
+});
+
+app.delete('/api/flate/:mmsi', async (c) => {
+  const { bruker } = await hentBruker(c);
+  await c.env.DB.prepare('DELETE FROM Flate WHERE bruker_id=? AND mmsi=?').bind(bruker.id, c.req.param('mmsi')).run();
+  return c.json({ ok: true });
+});
+
+app.get('/api/ais/sok', async (c) => {
+  try {
+    return c.json({ kilde: kilde(c.env), treff: await sokFartoy(c.env, c.req.query('q') ?? '', caches.default) });
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, 502);
+  }
+});
+
+app.get('/api/ais/spor/:mmsi', async (c) => {
+  try {
+    return c.json(await spor(c.env, c.req.param('mmsi')));
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, 502);
+  }
 });
 
 // ---------- Demo ----------

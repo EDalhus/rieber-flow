@@ -67,3 +67,14 @@ INSERT INTO SalgsordreLinjer (so_id, produkt, salttype, emballasje, antall, enhe
   ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10074'), 'Fint raffinert salt', 'Industri', 'Bigbag', 2, '1000 kg', 1000),
   ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10075'), 'Nitrittsalt', 'Industri', 'Pall', 2, '40 × 25 kg', 1000),
   ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10075'), 'Fint raffinert salt', 'Industri', 'Bigbag', 1, '500 kg', 500);
+
+-- Flåte for demo-brukerne (plassholder-MMSI-er; i ekte AIS-modus legger man til ekte fartøy via søk)
+INSERT INTO Flate (bruker_id, mmsi, navn, lagt_til)
+SELECT b.id, f.mmsi, f.navn, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+FROM Brukere b
+JOIN (
+  SELECT '257123400' AS mmsi, 'MV Nordic Star' AS navn
+  UNION ALL SELECT '219456700', 'MS Baltic Trader'
+  UNION ALL SELECT '258987600', 'MV Arctic Breeze'
+  UNION ALL SELECT '257555100', 'MV Salt Carrier'
+) f;

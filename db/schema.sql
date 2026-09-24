@@ -2,6 +2,7 @@
 -- Kjøres på nytt ved reset (DROP først), så seed er idempotent.
 
 
+DROP TABLE IF EXISTS Flate;
 DROP TABLE IF EXISTS DashboardLayout;
 DROP TABLE IF EXISTS Brukere;
 DROP TABLE IF EXISTS BatLasteplan;
@@ -85,4 +86,13 @@ CREATE TABLE DashboardLayout (
   bruker_id   INTEGER PRIMARY KEY REFERENCES Brukere(id) ON DELETE CASCADE,
   layout      TEXT NOT NULL,                  -- JSON
   oppdatert   TEXT NOT NULL
+);
+
+-- Brukerens flåte: båtene (MMSI) som vises på kartet. Alle andre AIS-fartøy holdes utenfor.
+CREATE TABLE Flate (
+  bruker_id   INTEGER NOT NULL REFERENCES Brukere(id) ON DELETE CASCADE,
+  mmsi        TEXT NOT NULL,
+  navn        TEXT NOT NULL,
+  lagt_til    TEXT NOT NULL,
+  PRIMARY KEY (bruker_id, mmsi)
 );

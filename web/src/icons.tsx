@@ -21,3 +21,6 @@ export const IconPlus = () => (
 export const Logo = () => (
   <svg width="38" height="38" viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" stroke="#145a3a" strokeWidth="4" /><path d="M10 22c4-8 7 6 10-1s6-3 10-7" stroke="#145a3a" strokeWidth="4" strokeLinecap="round" /></svg>
 );
+export const IconMap = () => (
+  <svg {...P}><path d="M9 4L3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4z" /><path d="M9 4v13M15 7v13" /></svg>
+);
