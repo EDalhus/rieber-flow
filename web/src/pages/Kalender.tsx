@@ -54,7 +54,7 @@ export function Kalender() {
       <div className="page-head">
         <div>
           <h1>Kalender</h1>
-          <p className="sub">Båtanløp og bemanning – alle ser hvem som er borte og hvem som ikke kan ta overtid.</p>
+          <p className="sub">Anløp, fravær og bemanning</p>
         </div>
         <div className="btns">
           <button className="btn primary" onClick={() => nyttFravaer(valgtDag ?? idag)}><IconPlus /> Legg til fravær</button>

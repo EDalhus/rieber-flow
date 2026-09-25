@@ -6,16 +6,21 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api, useApi, fmtDato, fmtTonn, textOn, type Bat, type SO, type Steg } from '../api';
-import { Linjer, Progress, SaltBadge, StatusPill } from '../ui';
+import { Linjer, Modal, Progress, SaltBadge, StatusPill } from '../ui';
+import { IconPlus } from '../icons';
 
 // ---------- Liste over båtanløp ----------
 
 export function Anlop() {
   const { data, reload } = useApi<Bat[]>('/batanlop');
   const [nytt, setNytt] = useState({ skipsnavn: '', eta: '' });
+  const [apen, setApen] = useState(() => !!new URLSearchParams(location.hash.split('?')[1] ?? '').get('ny'));
   return (
     <>
-      <h1>Båtanløp</h1>
+      <div className="page-head">
+        <div><h1>Båtanløp</h1></div>
+        <div className="btns"><button className="btn primary" onClick={() => setApen(true)}><IconPlus /> Nytt båtanløp</button></div>
+      </div>
       <div className="grid3">
         {data?.map((b) => (
           <a key={b.id} className="card boat" href={`#/anlop/${b.id}`}>
@@ -28,20 +33,28 @@ export function Anlop() {
           </a>
         ))}
       </div>
-      <form
-        className="card inline-form"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          await api('/batanlop', 'POST', { skipsnavn: nytt.skipsnavn, eta: new Date(nytt.eta).toISOString() });
-          setNytt({ skipsnavn: '', eta: '' });
-          reload();
-        }}
-      >
-        <b>Opprett båtanløp</b>
-        <input required placeholder="Skipsnavn" value={nytt.skipsnavn} onChange={(e) => setNytt({ ...nytt, skipsnavn: e.target.value })} />
-        <input required type="datetime-local" value={nytt.eta} onChange={(e) => setNytt({ ...nytt, eta: e.target.value })} />
-        <button className="primary">Legg til</button>
-      </form>
+      {apen && (
+        <Modal tittel="Nytt båtanløp" onLukk={() => setApen(false)}>
+          <form
+            className="skjema"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await api('/batanlop', 'POST', { skipsnavn: nytt.skipsnavn, eta: new Date(nytt.eta).toISOString() });
+              setNytt({ skipsnavn: '', eta: '' });
+              setApen(false);
+              reload();
+            }}
+          >
+            <label>Skipsnavn<input required autoFocus placeholder="F.eks. MV Nordic Star" value={nytt.skipsnavn} onChange={(e) => setNytt({ ...nytt, skipsnavn: e.target.value })} /></label>
+            <label>Forventet ankomst (ETA)<input required type="datetime-local" value={nytt.eta} onChange={(e) => setNytt({ ...nytt, eta: e.target.value })} /></label>
+            <div className="modal-bunn" style={{ gridColumn: '1 / -1' }}>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="btn ghost" onClick={() => setApen(false)}>Avbryt</button>
+              <button className="btn primary">Opprett</button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }

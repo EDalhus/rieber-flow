@@ -182,7 +182,7 @@ export function Flate() {
       <div className="page-head">
         <div>
           <h1>Flåte & kart</h1>
-          <p className="sub">Bare båtene i flåten din vises på kartet – ingen annen trafikk.</p>
+          <p className="sub">Bare båtene i flåten din vises</p>
         </div>
         <span className={`kilde ${data.kilde}`}>{data.kilde === 'ais' ? '● Live AIS · Kystverket' : '◌ Simulerte posisjoner'}</span>
       </div>

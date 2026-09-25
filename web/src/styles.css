@@ -422,3 +422,26 @@ button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
 @media (max-width: 640px) { .spot-bg { padding-top: 6vh; } .spot-fot { display: none; } }
 
 .bk-gjest { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #fff4d6; color: #7a4a00; border-radius: 14px; padding: 8px 12px; font-weight: 700; font-size: 13.5px; }
+
+/* Layout uten egen toppnav: søk midt i innholdet, konto nederst i sidemenyen */
+.topbar { display: none; }
+main { position: relative; }
+main > button.search { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: min(400px, 32%); height: 38px; background: #fff; z-index: 6; }
+main > button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
+.page-head > div:first-child { max-width: calc(50% - 230px); min-height: 44px; }
+.sidebar .user { margin-top: 10px; background: #fff; border-radius: 18px; padding: 10px 12px; }
+.sidebar .user > div { min-width: 0; }
+.sidebar .user small { font-size: 12px; }
+.sidebar .user select.user-sel { max-width: 150px; }
+.promo { margin-top: auto; }
+.tilpass-rad { display: flex; justify-content: center; padding: 22px 0 6px; }
+.tilpass-knapp { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; padding: 8px 16px; border-radius: 999px; }
+.tilpass-knapp:hover { background: #fff; color: var(--ink); }
+.tilpass-bar { position: sticky; bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; width: fit-content; max-width: 100%; margin: 18px auto 0; padding: 10px 16px; background: #fff; border-radius: 999px; box-shadow: 0 10px 40px rgba(0, 0, 0, .18); z-index: 20; }
+.add-meny.opp { top: auto; bottom: 46px; right: auto; left: 0; }
+.kart-wrap { height: calc(100vh - 150px); }
+.flate-panel { max-height: calc(100vh - 150px); }
+@media (max-width: 900px) {
+  main > button.search { position: static; transform: none; width: 100%; margin-bottom: 12px; }
+  .page-head > div:first-child { max-width: none; }
+}

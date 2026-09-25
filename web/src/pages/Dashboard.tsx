@@ -81,30 +81,7 @@ export function Dashboard() {
       <div className="page-head">
         <div>
           <h1>Dashboard</h1>
-          <p className="sub">Planlegg, prioriter og få båtene lastet uten dødtid.</p>
-        </div>
-        <div className="btns">
-          {redigerer ? (
-            <>
-              <span className="muted lagre-status">{lagret === 'lagrer' ? 'Lagrer…' : lagret === 'lagret' ? 'Lagret ✓' : ''}</span>
-              <div className="add-wrap">
-                <button className="btn ghost" onClick={() => setMeny(!meny)}><IconPlus /> Legg til widget</button>
-                {meny && (
-                  <div className="add-meny">
-                    {skjulte.length === 0 && <span className="muted pad">Alle widgets er på dashboardet</span>}
-                    {skjulte.map((w) => <button key={w.id} onClick={() => leggTil(w.id)}>{w.tittel}</button>)}
-                  </div>
-                )}
-              </div>
-              <button className="btn ghost" onClick={tilbakestill}>Standard</button>
-              <button className="btn primary" onClick={() => { setRedigerer(false); setMeny(false); }}>Ferdig</button>
-            </>
-          ) : (
-            <>
-              <button className="btn ghost" onClick={() => setRedigerer(true)}>⠿ Tilpass</button>
-              <a className="btn primary" href="#/anlop"><IconPlus /> Nytt båtanløp</a>
-            </>
-          )}
+          <p className="sub">Dagens drift på et blikk</p>
         </div>
       </div>
 
@@ -128,6 +105,25 @@ export function Dashboard() {
           </ReactGridLayout>
         )}
       </div>
+
+      {redigerer ? (
+        <div className="tilpass-bar">
+          <span className="muted lagre-status">{lagret === 'lagrer' ? 'Lagrer…' : lagret === 'lagret' ? 'Lagret ✓' : 'Dra, endre størrelse eller fjern widgets'}</span>
+          <div className="add-wrap">
+            <button className="btn ghost sm" onClick={() => setMeny(!meny)}><IconPlus /> Legg til widget</button>
+            {meny && (
+              <div className="add-meny opp">
+                {skjulte.length === 0 && <span className="muted pad">Alle widgets er på dashboardet</span>}
+                {skjulte.map((w) => <button key={w.id} onClick={() => leggTil(w.id)}>{w.tittel}</button>)}
+              </div>
+            )}
+          </div>
+          <button className="btn ghost sm" onClick={tilbakestill}>Standard</button>
+          <button className="btn primary sm" onClick={() => { setRedigerer(false); setMeny(false); }}>Ferdig</button>
+        </div>
+      ) : (
+        <div className="tilpass-rad"><button className="tilpass-knapp" onClick={() => setRedigerer(true)}>⠿ Tilpass dashboard</button></div>
+      )}
      </DashCtx.Provider>
     </div>
   );

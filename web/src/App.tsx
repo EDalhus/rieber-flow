@@ -99,15 +99,15 @@ export function App() {
             Nullstill demo
           </button>
         </div>
+        <Bruker />
       </aside>
       <div className="col">
-        <header className="topbar">
+        <main key={path}>
           <button className="search" onClick={() => setSok(true)} aria-label="Søk">
             <IconSearch /><span>Søk i alt …</span><kbd>{SNARVEI}</kbd>
           </button>
-          <Bruker />
-        </header>
-        <main key={path}>{page}</main>
+          {page}
+        </main>
         <Spotlight apen={sok} onLukk={() => setSok(false)} />
       </div>
     </div>

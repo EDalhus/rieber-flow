@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { fmtDato, fmtTonn, type Bat, type Dashboard as D, type SO } from './api';
-import { IconArrow, IconPlus } from './icons';
+import { IconArrow } from './icons';
 import { StatusPill } from './ui';
 
 /** Data som alle dashboard-widgets deler (hentes én gang og poller). */
@@ -120,7 +120,7 @@ function Batanlop() {
   const { bater } = useDash();
   return (
     <section className="panel">
-      <div className="row"><h3>Båtanløp</h3><a className="btn ghost sm" href="#/anlop"><IconPlus /> Ny</a></div>
+      <h3>Båtanløp</h3>
       <ul className="list">
         {bater.map((b) => (
           <li key={b.id}>

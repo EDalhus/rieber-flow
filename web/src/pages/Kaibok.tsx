@@ -43,7 +43,7 @@ export function Kaibok() {
       <div className="page-head">
         <div>
           <h1>Kaibok</h1>
-          <p className="sub">Logg over hvert anløp: hva vi gjorde, hvordan det gikk og bilder som dokumenterer kvaliteten.</p>
+          <p className="sub">Logg over anløp, tilbakemeldinger og bilder</p>
         </div>
         <div className="btns">
           <button className="btn primary" onClick={() => setModal({ id: null })}><IconPlus /> Ny føring</button>
