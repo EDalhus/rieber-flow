@@ -45,6 +45,9 @@ async function oppdaterOgRydd(db: D1Database) {
   if (!(await db.prepare("SELECT 1 AS x FROM pragma_table_info('Salgsordrer') WHERE name='ferdig_tidspunkt'").first())) {
     await db.prepare('ALTER TABLE Salgsordrer ADD COLUMN ferdig_tidspunkt TEXT').run();
   }
+  if (!(await db.prepare("SELECT 1 AS x FROM pragma_table_info('Produkter') WHERE name='pallertype'").first())) {
+    await db.prepare('ALTER TABLE Produkter ADD COLUMN pallertype TEXT').run();
+  }
   if (await db.prepare("SELECT 1 AS x FROM Oppsett WHERE nokkel='demo-fjernet'").first()) return;
   const soDemo = ['SO-10041', 'SO-10042', 'SO-10043', 'SO-10044', 'SO-10051', 'SO-10052', 'SO-10061', 'SO-10071', 'SO-10072', 'SO-10073', 'SO-10074', 'SO-10075'];
   const brukerDemo = ['kontor@rieber.demo', 'ledelse@rieber.demo', 'ola@rieber.demo', 'tone@rieber.demo', 'per@rieber.demo'];

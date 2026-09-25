@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 export type ProduktType = 'Bulk' | 'Bigbag' | 'Pall';
 export type Produkt = {
   id: number; produktnr: string; navn: string; beskrivelse: string; type: ProduktType; enhet: string; kg_per_enhet: number;
-  fargekode: string; lager: number; aktiv: number; antall_linjer?: number;
+  pallertype?: string | null; fargekode: string; lager: number; aktiv: number; antall_linjer?: number;
 };
+export const PALLETYPER = ['Europalle', 'SRS plastpalle'] as const;
 export const TYPE_NAVN: Record<ProduktType, string> = { Bulk: 'Bulk', Bigbag: 'Bigbags', Pall: 'Pallevarer' };
 /** Mengde med riktig enhet for produkttypen (tonn / bigbags / paller). */
 export const mengdeTekst = (type: ProduktType, n: number) => {
@@ -17,7 +18,7 @@ export type Bat = {
   tonn_totalt: number; tonn_lastet: number; antall_steg: number;
 };
 export type Linje = {
-  id: number; so_id: number; produkt_id?: number; produktnr?: string; produkt: string; salttype: string; fargekode: string;
+  id: number; so_id: number; produkt_id?: number; produktnr?: string; pallertype?: string | null; produkt: string; salttype: string; fargekode: string;
   emballasje: 'Bulk' | 'Bigbag' | 'Pall'; antall: number; enhet: string; kg_per_enhet: number;
 };
 export type SO = {

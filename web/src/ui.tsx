@@ -32,7 +32,7 @@ const nb = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',');
 /** Antall + emballasje, f.eks. «2 × Bigbag», «3 × Pall», «32 t Bulk». */
 export const linjeAntall = (l: Linje) => (l.emballasje === 'Bulk' ? `${nb(l.antall)} t Bulk` : `${nb(l.antall)} × ${EMB[l.emballasje].ledd}`);
 /** Produkt + enhet, f.eks. «Fint raffinert salt 40 × 25 kg». */
-export const linjeProdukt = (l: Linje) => (l.emballasje === 'Bulk' ? l.produkt : `${l.produkt} ${l.enhet}`);
+export const linjeProdukt = (l: Linje) => (l.emballasje === 'Bulk' ? l.produkt : `${l.produkt} ${l.enhet}${l.pallertype ? ` · ${l.pallertype}` : ''}`);
 export const trengerKlargjoring = (linjer?: Linje[]) => !!linjer?.some((l) => l.emballasje !== 'Bulk');
 
 /** Innholdet i en salgsordre: hva som ligger i den og hva som må klargjøres/plukkes. */

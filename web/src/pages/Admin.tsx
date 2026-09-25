@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, mengdeTekst, TYPE_NAVN, useApi, type Produkt, type ProduktType } from '../api';
+import { api, mengdeTekst, PALLETYPER, TYPE_NAVN, useApi, type Produkt, type ProduktType } from '../api';
 import { IconPlus } from '../icons';
 import { Modal } from '../ui';
 
@@ -65,7 +65,7 @@ export function Admin() {
                   <span className="prod-navn"><i className="salt-dot liten" style={{ background: p.fargekode }} /><span><b>{p.navn}</b>{p.beskrivelse && <small className="muted">{p.beskrivelse}</small>}</span></span>
                 </td>
                 <td><span className={`pill t-${p.type.toLowerCase()}`}>{TYPE_NAVN[p.type]}</span></td>
-                <td>{p.type === 'Bulk' ? 'pr. tonn' : p.enhet}</td>
+                <td>{p.type === 'Bulk' ? 'pr. tonn' : p.enhet}{p.type === 'Pall' && p.pallertype && <small className="muted" style={{ display: 'block' }}>{p.pallertype}</small>}</td>
                 <td className="num">{mengdeTekst(p.type, p.lager)}</td>
                 <td>{p.aktiv ? <span className="pill s-ferdig">Aktiv</span> : <span className="pill">Deaktivert</span>}</td>
               </tr>
@@ -91,6 +91,7 @@ function ProduktModal({ start, onLukk }: { start: { produkt?: Produkt; type?: Pr
   const [beskrivelse, setBeskrivelse] = useState(p?.beskrivelse ?? '');
   const [farge, setFarge] = useState(p?.fargekode ?? FARGER[0]);
   const [kgBigbag, setKgBigbag] = useState(String(p?.type === 'Bigbag' ? p.kg_per_enhet : 1000));
+  const [pallertype, setPallertype] = useState<string>(p?.pallertype ?? '');
   const [sekker, setSekker] = useState(String(pall.sekker));
   const [kgSekk, setKgSekk] = useState(String(pall.kg));
   const [lager, setLager] = useState(String(p?.lager ?? 0));
@@ -105,7 +106,7 @@ function ProduktModal({ start, onLukk }: { start: { produkt?: Produkt; type?: Pr
 
   async function lagre() {
     setLagrer(true); setFeil(null);
-    const body = { produktnr: nr, navn, beskrivelse, type, enhet, kg_per_enhet: kg, fargekode: farge, lager: +lager || 0, aktiv };
+    const body = { produktnr: nr, navn, beskrivelse, type, enhet, kg_per_enhet: kg, pallertype: type === 'Pall' ? pallertype : null, fargekode: farge, lager: +lager || 0, aktiv };
     try {
       if (p) await api(`/admin/produkter/${p.id}`, 'PUT', body); else await api('/admin/produkter', 'POST', body);
       onLukk(true);
@@ -142,9 +143,17 @@ function ProduktModal({ start, onLukk }: { start: { produkt?: Produkt; type?: Pr
         )}
         {type === 'Pall' && (
           <>
+            <div className="bred vurd-valg">
+              <span>Pallen varene står på</span>
+              <div>
+                {PALLETYPER.map((t) => (
+                  <button key={t} type="button" className={`vurd type-valg ${pallertype === t ? 'valgt' : ''}`} onClick={() => setPallertype(t)}>{t}</button>
+                ))}
+              </div>
+            </div>
             <label>Sekker pr. pall<input type="number" min="1" step="1" value={sekker} disabled={bruktIOrdre} onChange={(e) => setSekker(e.target.value)} /></label>
             <label>Vekt pr. sekk (kg)<input type="number" min="0.1" step="0.1" value={kgSekk} disabled={bruktIOrdre} onChange={(e) => setKgSekk(e.target.value)} /></label>
-            <p className="muted bred">Pakking: <b>{enhet}</b> · {kg} kg pr. pall</p>
+            <p className="muted bred">Pakking: <b>{enhet}</b> · {kg} kg pr. pall{pallertype ? ` · ${pallertype}` : ''}</p>
           </>
         )}
         <label>Lagerbeholdning ({lagerEnhet})<input type="number" min="0" step="any" value={lager} onChange={(e) => setLager(e.target.value)} /></label>
@@ -163,7 +172,7 @@ function ProduktModal({ start, onLukk }: { start: { produkt?: Produkt; type?: Pr
         {p && <button className="btn ghost danger" onClick={slett}>Slett</button>}
         <span style={{ flex: 1 }} />
         <button className="btn ghost" onClick={() => onLukk(false)}>Avbryt</button>
-        <button className="btn primary" disabled={lagrer || !nr.trim() || !navn.trim()} onClick={lagre}>{lagrer ? 'Lagrer…' : 'Lagre'}</button>
+        <button className="btn primary" disabled={lagrer || !nr.trim() || !navn.trim() || (type === 'Pall' && !pallertype)} onClick={lagre}>{lagrer ? 'Lagrer…' : 'Lagre'}</button>
       </div>
     </Modal>
   );

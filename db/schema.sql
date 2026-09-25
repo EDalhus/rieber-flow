@@ -29,6 +29,7 @@ CREATE TABLE Produkter (
   type          TEXT NOT NULL CHECK (type IN ('Bulk', 'Bigbag', 'Pall')),
   enhet         TEXT NOT NULL,
   kg_per_enhet  REAL NOT NULL CHECK (kg_per_enhet > 0),
+  pallertype    TEXT,                          -- kun for Pall: 'Europalle' eller 'SRS plastpalle'
   fargekode     TEXT NOT NULL DEFAULT '#1E6FFF',
   lager         REAL NOT NULL DEFAULT 0 CHECK (lager >= 0),
   aktiv         INTEGER NOT NULL DEFAULT 1,

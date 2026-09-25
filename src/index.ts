@@ -229,7 +229,7 @@ async function medLinjer<T extends Record<string, any>>(db: D1Database, rader: T
   const { results } = await db
     .prepare(
       `SELECT l.id, l.so_id, l.produkt_id, l.antall, p.produktnr, p.navn AS produkt, p.navn AS salttype, p.type AS emballasje,
-              p.enhet, p.kg_per_enhet, p.fargekode
+              p.enhet, p.kg_per_enhet, p.pallertype, p.fargekode
        FROM SalgsordreLinjer l JOIN Produkter p ON p.id=l.produkt_id
        WHERE l.so_id IN (${ids.map(() => '?').join(',')}) ORDER BY l.id`,
     )

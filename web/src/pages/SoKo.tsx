@@ -110,7 +110,7 @@ function NyOrdre({ onLukk }: { onLukk: (endret: boolean) => void }) {
               <option value="">Velg produkt …</option>
               {(['Bulk', 'Bigbag', 'Pall'] as const).map((t) => (
                 <optgroup key={t} label={TYPE_NAVN[t]}>
-                  {produkter?.filter((x) => x.type === t).map((x) => <option key={x.id} value={x.id}>{x.produktnr} · {x.navn}{t !== 'Bulk' ? ` (${x.enhet})` : ''}</option>)}
+                  {produkter?.filter((x) => x.type === t).map((x) => <option key={x.id} value={x.id}>{x.produktnr} · {x.navn}{t !== 'Bulk' ? ` (${x.enhet}${x.pallertype ? `, ${x.pallertype}` : ''})` : ''}</option>)}
                 </optgroup>
               ))}
             </select>

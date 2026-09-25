@@ -3,12 +3,13 @@ import type { Env } from './types';
 import { hentBruker, now } from './bruker';
 
 const TYPER = ['Bulk', 'Bigbag', 'Pall'];
+const PALLETYPER = ['Europalle', 'SRS plastpalle'];
 /** Roller som kan administrere produktkatalogen (sjåfører og lager kan bare lese). */
 const ADMIN_ROLLER = ['Formann', 'Kontor', 'Ledelse'];
 
 type ProduktInn = {
   produktnr?: string; navn?: string; beskrivelse?: string; type?: string; enhet?: string; kg_per_enhet?: number;
-  fargekode?: string; lager?: number; aktiv?: boolean | number;
+  fargekode?: string; lager?: number; aktiv?: boolean | number; pallertype?: string | null;
 };
 
 function valider(b: ProduktInn): string | null {
@@ -18,6 +19,7 @@ function valider(b: ProduktInn): string | null {
   if (b.navn.trim().length > 120) return 'Navnet er for langt';
   if ((b.beskrivelse ?? '').length > 600) return 'Beskrivelsen er for lang (maks 600 tegn)';
   if (!TYPER.includes(b.type ?? '')) return 'Type må være Bulk, Bigbag eller Pall';
+  if (b.type === 'Pall' && !PALLETYPER.includes(b.pallertype ?? '')) return 'Velg pallertype: Europalle eller SRS plastpalle';
   if (b.type !== 'Bulk' && !(Number(b.kg_per_enhet) > 0)) return 'Vekt pr. enhet (kg) må være større enn 0';
   if (b.type !== 'Bulk' && !b.enhet?.trim()) return 'Enhet/pakking kreves (f.eks. «1000 kg» eller «40 × 25 kg»)';
   if (!/^#[0-9a-fA-F]{6}$/.test(b.fargekode ?? '')) return 'Ugyldig fargekode';
@@ -30,6 +32,7 @@ const normaliser = (b: ProduktInn) => ({
   produktnr: b.produktnr!.trim(), navn: b.navn!.trim(), beskrivelse: (b.beskrivelse ?? '').trim(), type: b.type!,
   enhet: b.type === 'Bulk' ? 'tonn' : b.enhet!.trim(),
   kg_per_enhet: b.type === 'Bulk' ? 1000 : Number(b.kg_per_enhet),
+  pallertype: b.type === 'Pall' ? b.pallertype! : null,
   fargekode: b.fargekode!.toUpperCase(), lager: Number(b.lager ?? 0),
 });
 
@@ -67,8 +70,8 @@ export function produktRoutes(app: Hono<Env>) {
     const finnes = await c.env.DB.prepare('SELECT id FROM Produkter WHERE produktnr = ?').bind(n.produktnr).first();
     if (finnes) return c.json({ error: `Produkt-ID «${n.produktnr}» er allerede i bruk` }, 409);
     const r = await c.env.DB.prepare(
-      `INSERT INTO Produkter (produktnr, navn, beskrivelse, type, enhet, kg_per_enhet, fargekode, lager, opprettet) VALUES (?,?,?,?,?,?,?,?,?)`,
-    ).bind(n.produktnr, n.navn, n.beskrivelse, n.type, n.enhet, n.kg_per_enhet, n.fargekode, n.lager, now()).run();
+      `INSERT INTO Produkter (produktnr, navn, beskrivelse, type, enhet, kg_per_enhet, pallertype, fargekode, lager, opprettet) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(n.produktnr, n.navn, n.beskrivelse, n.type, n.enhet, n.kg_per_enhet, n.pallertype, n.fargekode, n.lager, now()).run();
     return c.json({ id: r.meta.last_row_id }, 201);
   });
 
@@ -90,8 +93,8 @@ export function produktRoutes(app: Hono<Env>) {
     const dublett = await c.env.DB.prepare('SELECT id FROM Produkter WHERE produktnr = ? AND id != ?').bind(n.produktnr, id).first();
     if (dublett) return c.json({ error: `Produkt-ID «${n.produktnr}» er allerede i bruk` }, 409);
     await c.env.DB.prepare(
-      `UPDATE Produkter SET produktnr=?, navn=?, beskrivelse=?, type=?, enhet=?, kg_per_enhet=?, fargekode=?, lager=?, aktiv=? WHERE id=?`,
-    ).bind(n.produktnr, n.navn, n.beskrivelse, n.type, n.enhet, n.kg_per_enhet, n.fargekode, n.lager, b.aktiv === false || b.aktiv === 0 ? 0 : 1, id).run();
+      `UPDATE Produkter SET produktnr=?, navn=?, beskrivelse=?, type=?, enhet=?, kg_per_enhet=?, pallertype=?, fargekode=?, lager=?, aktiv=? WHERE id=?`,
+    ).bind(n.produktnr, n.navn, n.beskrivelse, n.type, n.enhet, n.kg_per_enhet, n.pallertype, n.fargekode, n.lager, b.aktiv === false || b.aktiv === 0 ? 0 : 1, id).run();
     return c.json({ ok: true });
   });
 
