@@ -44,6 +44,7 @@ export function mockPos(f: MockFartoy, tid: number): Pos {
     lat: a[0] + (b[0] - a[0]) * u, lon: a[1] + (b[1] - a[1]) * u,
     sog: f.sog, cog: retning, heading: retning, navstatus: 0, skipstype: f.skipstype,
     destinasjon: f.destinasjon, eta: null, msgtime: new Date(tid).toISOString(),
+    stevning: Math.round(retning), rot: 0,
     kallesignal: `LA${f.mmsi.slice(-3)}X`, lengde: 110 + (Number(f.mmsi.slice(-2)) % 40), bredde: 18, dypgang: 6.4, flagg: 'NO',
   };
 }

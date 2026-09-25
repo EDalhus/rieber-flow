@@ -130,3 +130,27 @@ export function etaTerminal(nm: number, sog: number | null) {
 
 const TYPER: [number, number, string][] = [[20, 29, 'Wing in ground'], [30, 30, 'Fiskefartøy'], [31, 32, 'Slepefartøy'], [33, 33, 'Mudderverk'], [34, 34, 'Dykkerfartøy'], [35, 35, 'Militært'], [36, 36, 'Seilbåt'], [37, 37, 'Fritidsbåt'], [40, 49, 'Hurtigbåt'], [50, 50, 'Losbåt'], [51, 51, 'Redningsfartøy'], [52, 52, 'Slepebåt'], [53, 53, 'Havnefartøy'], [55, 55, 'Tollvesen/politi'], [60, 69, 'Passasjerskip'], [70, 79, 'Lasteskip'], [80, 89, 'Tankskip'], [90, 99, 'Annet']];
 export const skipstypeTekst = (kode: number | null | undefined) => (kode == null ? null : TYPER.find(([a, b]) => kode >= a && kode <= b)?.[2] ?? `Type ${kode}`);
+
+const NAVSTATUS: Record<number, string> = { 0: 'Går med motor', 1: 'Ankret', 2: 'Ikke under kommando', 3: 'Begrenset manøvreringsevne', 4: 'Begrenset av dypgang', 5: 'Fortøyd', 6: 'Grunnstøtt', 7: 'Driver fiske', 8: 'Går for seil', 15: 'Ikke definert' };
+export const navstatusTekst = (k: number | null | undefined) => (k == null ? null : NAVSTATUS[k] ?? `Status ${k}`);
+
+// MMSI-ets tre første siffer (MID) sier hvilket land skipet er registrert i
+const MID: Record<string, string> = {
+  '257': 'NO', '258': 'NO', '259': 'NO', '219': 'DK', '220': 'DK', '265': 'SE', '266': 'SE', '230': 'FI', '231': 'FO', '232': 'GB', '233': 'GB', '234': 'GB', '235': 'GB',
+  '244': 'NL', '245': 'NL', '246': 'NL', '211': 'DE', '218': 'DE', '255': 'PT', '263': 'PT', '224': 'ES', '225': 'ES', '226': 'FR', '227': 'FR', '228': 'FR', '250': 'IE', '251': 'IS',
+  '252': 'LI', '261': 'PL', '272': 'UA', '273': 'RU', '275': 'LV', '276': 'EE', '277': 'LT', '205': 'BE', '206': 'BE', '207': 'BG', '209': 'CY', '210': 'CY', '212': 'CY', '215': 'MT',
+  '229': 'MT', '248': 'MT', '249': 'MT', '256': 'MT', '238': 'HR', '240': 'GR', '241': 'GR', '247': 'IT', '271': 'TR', '304': 'AG', '305': 'AG', '308': 'BS', '309': 'BS', '311': 'BS',
+  '351': 'PA', '352': 'PA', '353': 'PA', '354': 'PA', '355': 'PA', '356': 'PA', '357': 'PA', '370': 'PA', '371': 'PA', '372': 'PA', '373': 'PA', '374': 'PA', '538': 'MH', '636': 'LR',
+  '637': 'LR', '563': 'SG', '564': 'SG', '565': 'SG', '566': 'SG', '477': 'HK', '412': 'CN', '413': 'CN', '414': 'CN', '431': 'JP', '432': 'JP', '440': 'KR', '441': 'KR', '419': 'IN',
+  '338': 'US', '366': 'US', '367': 'US', '368': 'US', '369': 'US', '316': 'CA', '503': 'AU', '512': 'NZ', '233 ': 'GB',
+};
+export const landFraMmsi = (mmsi: string) => MID[mmsi.slice(0, 3)] ?? null;
+/** ISO-landskode → flaggemoji og navn på norsk. */
+export function flagg(kode: string | null | undefined) {
+  if (!kode || !/^[A-Za-z]{2}$/.test(kode)) return null;
+  const k = kode.toUpperCase();
+  const emoji = String.fromCodePoint(...[...k].map((c) => 127397 + c.charCodeAt(0)));
+  let navn = k;
+  try { navn = new Intl.DisplayNames(['nb'], { type: 'region' }).of(k) ?? k; } catch { /* eldre nettleser */ }
+  return { emoji, navn };
+}

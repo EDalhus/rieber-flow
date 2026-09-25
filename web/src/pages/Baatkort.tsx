@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, fmtDato, useApi, type FartoyBilde, type FartoyInfo, type FlateFartoy } from '../api';
-import { etaTerminal, fmtNm, skipstypeTekst, type Sjovei } from '../sjovei';
+import { etaTerminal, flagg, fmtNm, landFraMmsi, navstatusTekst, skipstypeTekst, type Sjovei } from '../sjovei';
 import { krympBilde } from '../ui';
 
 const kn = (v: number | null | undefined) => (v == null ? '–' : `${v.toFixed(1).replace('.', ',')} kn`);
+const grader = (v: number | null | undefined, d = 0) => (v == null ? '–' : `${v.toFixed(d).replace('.', ',')}°`);
+const posTekst = (lat: number, lon: number) => `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'Ø' : 'V'}`;
+
+function Trio({ celler }: { celler: [string, string][] }) {
+  return <div className="bk-trio">{celler.map(([t, v]) => <div key={t}><span>{t}</span><b>{v}</b></div>)}</div>;
+}
 
 type Kontakt = 'tel' | 'mail' | undefined;
 const FELT: [keyof FartoyInfo, string, Kontakt][] = [
@@ -30,8 +36,10 @@ export function Baatkort({ f, sjo, onTilbake }: { f: FlateFartoy; sjo: Sjovei | 
   const [skjema, setSkjema] = useState<FartoyInfo>(TOM);
   const [feil, setFeil] = useState<string | null>(null);
   const [laster, setLaster] = useState(false);
+  const [aisApen, setAisApen] = useState(true);
   const filRef = useRef<HTMLInputElement>(null);
   const p = f.posisjon;
+  const land = flagg(p?.flagg) ?? flagg(landFraMmsi(f.mmsi));
 
   useEffect(() => { setRedigerer(false); setFeil(null); }, [f.mmsi]);
   const info = data?.info ?? TOM;
@@ -58,14 +66,28 @@ export function Baatkort({ f, sjo, onTilbake }: { f: FlateFartoy; sjo: Sjovei | 
 
   return (
     <div className="baatkort">
-      <button className="tilbake" onClick={onTilbake}>← Tilbake til flåten</button>
+      <div className="bk-topp">
+        <div>
+          <h3 className="bk-navn">{f.navn}</h3>
+          <div className="bk-under">
+            {land && <span>{land.emoji} {land.navn}</span>}
+            {land && skipstypeTekst(p?.skipstype) && <i />}
+            {skipstypeTekst(p?.skipstype) && <span>{skipstypeTekst(p?.skipstype)}</span>}
+          </div>
+        </div>
+        <button className="icon" onClick={onTilbake} aria-label="Lukk båtkort" title="Tilbake til flåten">✕</button>
+      </div>
 
       <div className="bk-bilde">
         {bildeSrc ? <img src={bildeSrc} alt={f.navn} referrerPolicy="no-referrer" /> : (
           <div className="bk-ingen"><span>🚢</span><small>Ingen bilde ennå</small></div>
         )}
-        <button className="bk-last" disabled={laster} onClick={() => filRef.current?.click()}>{laster ? 'Laster opp…' : '📷 Last opp bilde'}</button>
+        <button className="bk-kamera" disabled={laster} onClick={() => filRef.current?.click()} aria-label="Last opp bilde" title="Last opp bilde">📷</button>
         <input ref={filRef} type="file" accept="image/*" multiple hidden onChange={(e) => { const l = Array.from(e.target.files ?? []); e.target.value = ''; if (l.length) lastOpp(l); }} />
+      </div>
+      <div className="bk-bildetekst">
+        <span>{laster ? 'Laster opp…' : hoved ? 'Bilde lastet opp av teamet.' : info.bilde_url ? 'Bilde fra ekstern lenke.' : 'Kystverkets AIS har ikke bilder.'} Feil eller dårlig bilde?</span>
+        <button onClick={() => filRef.current?.click()}>Last opp nytt</button>
       </div>
       {bilder.length > 1 && (
         <div className="bk-miniatyrer">
@@ -78,17 +100,11 @@ export function Baatkort({ f, sjo, onTilbake }: { f: FlateFartoy; sjo: Sjovei | 
         </div>
       )}
       {bilder.length === 1 && (
-        <button className="btn ghost sm" onClick={async () => { if (confirm('Slette bildet?')) { await api(`/fartoy/bilder/${bilder[0].id}`, 'DELETE'); reload(); } }}>Slett bilde</button>
+        <button className="btn ghost sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { if (confirm('Slette bildet?')) { await api(`/fartoy/bilder/${bilder[0].id}`, 'DELETE'); reload(); } }}>Slett bilde</button>
       )}
-      {bilder.length === 0 && !info.bilde_url && <p className="muted bk-notat">Kystverkets AIS-data har ingen bilder – last opp et eget bilde, så vises det her.</p>}
 
-      <h3 className="bk-navn">{f.navn}</h3>
-      <div className="bk-chips">
-        <span className="chip-static">MMSI {f.mmsi}</span>
-        {p?.imo && <span className="chip-static">IMO {p.imo}</span>}
-        {p?.kallesignal && <span className="chip-static">{p.kallesignal}</span>}
-        {skipstypeTekst(p?.skipstype) && <span className="chip-static">{skipstypeTekst(p?.skipstype)}</span>}
-      </div>
+      <Trio celler={[['FART', kn(p?.sog)], ['STEVNING', grader(p?.stevning)], ['KURS', grader(p?.cog, 1)]]} />
+      <Trio celler={[['MMSI', f.mmsi], ['IMO', p?.imo ?? '–'], ['KALLESIGNAL', p?.kallesignal ?? '–']]} />
 
       <div className="bk-terminal">
         <b>Til terminalen (Flatholmen)</b>
@@ -102,16 +118,26 @@ export function Baatkort({ f, sjo, onTilbake }: { f: FlateFartoy; sjo: Sjovei | 
       </div>
 
       {p && (
-        <dl className="bk-data">
-          <dt>Fart</dt><dd>{kn(p.sog)}</dd>
-          <dt>Kurs</dt><dd>{p.cog != null ? `${Math.round(p.cog)}°` : '–'}</dd>
-          <dt>Destinasjon</dt><dd>{p.destinasjon ?? '–'}</dd>
-          {p.eta && <><dt>ETA (AIS)</dt><dd>{fmtDato(p.eta)}</dd></>}
-          {p.lengde != null && <><dt>Størrelse</dt><dd>{p.lengde} × {p.bredde ?? '–'} m</dd></>}
-          {p.dypgang != null && <><dt>Dypgang</dt><dd>{p.dypgang} m</dd></>}
-          {p.flagg && <><dt>Flagg</dt><dd>{p.flagg}</dd></>}
-          {p.msgtime && <><dt>Sist oppdatert</dt><dd>{fmtDato(p.msgtime)}</dd></>}
-        </dl>
+        <div className="bk-ais">
+          <button className="bk-ais-topp" onClick={() => setAisApen(!aisApen)} aria-expanded={aisApen}>
+            Siste posisjon fra AIS <span className={aisApen ? 'apen' : ''}>⌃</span>
+          </button>
+          {aisApen && (
+            <dl className="bk-rader">
+              <dt>Status</dt><dd>{navstatusTekst(p.navstatus) ?? '–'}</dd>
+              <dt>Fart</dt><dd>{kn(p.sog)}</dd>
+              <dt>Kurs (COG)</dt><dd>{grader(p.cog, 1)}</dd>
+              <dt>Stevning</dt><dd>{grader(p.stevning)}</dd>
+              <dt>Rate of turn (ROT)</dt><dd>{p.rot != null ? `${p.rot}°/m` : '–'}</dd>
+              <dt>Destinasjon</dt><dd>{p.destinasjon ?? '–'}</dd>
+              {p.eta && <><dt>ETA (AIS)</dt><dd>{fmtDato(p.eta)}</dd></>}
+              <dt>Posisjon</dt><dd>{posTekst(p.lat, p.lon)}</dd>
+              {p.lengde != null && <><dt>Størrelse</dt><dd>{p.lengde} × {p.bredde ?? '–'} m</dd></>}
+              {p.dypgang != null && <><dt>Dypgang</dt><dd>{p.dypgang} m</dd></>}
+              {p.msgtime && <><dt>Sist oppdatert</dt><dd>{fmtDato(p.msgtime)}</dd></>}
+            </dl>
+          )}
+        </div>
       )}
 
       <div className="bk-kontakt">

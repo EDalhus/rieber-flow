@@ -90,6 +90,7 @@ export function textOn(hex: string) {
 export type Posisjon = {
   mmsi: string; imo?: string | null; navn: string | null; lat: number; lon: number; sog: number | null; cog: number | null; heading: number | null;
   destinasjon: string | null; eta: string | null; msgtime: string | null;
+  navstatus?: number | null; stevning?: number | null; rot?: number | null;
   skipstype?: number | null; kallesignal?: string | null; lengde?: number | null; bredde?: number | null; dypgang?: number | null; flagg?: string | null;
 };
 export type FartoyInfo = {
