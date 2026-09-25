@@ -1,4 +1,4 @@
-import { SCHEMA, SEED } from './generated/sql';
+import { MIGRER, SCHEMA, SEED } from './generated/sql';
 
 let ready: Promise<void> | null = null;
 
@@ -8,6 +8,10 @@ export function ensureDb(db: D1Database): Promise<void> {
     // Sjekk nyeste tabell – mangler den, er databasen laget av en eldre schema-versjon
     const t = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='FartoyInfo'").first();
     if (!t) await resetDb(db);
+    // Databaser fra før produktkatalogen: migrer (bevarer brukerdata som flåte, kaibok og egne anløp)
+    else if (!(await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='Produkter'").first())) {
+      await db.batch(MIGRER.map((q) => db.prepare(q)));
+    }
     await fjernDemoBater(db);
   })().catch((e) => {
     ready = null;

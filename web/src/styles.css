@@ -545,3 +545,19 @@ main > button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
 .panel.kompakt .hv-knapp { padding: 8px 10px; font-size: 13px; gap: 6px; } .panel.kompakt .hv-knapp span { font-size: 16px; }
 
 .btn.hull { border-color: #f1c36b; background: #fff8e5; color: #7a4a00; }
+
+/* Admin / produkter */
+.prod-navn { display: flex; align-items: center; gap: 10px; } .prod-navn small { display: block; max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.salt-dot.liten { width: 16px; height: 16px; box-shadow: none; flex: none; }
+.t-bulk { background: #e0ecff; color: #1d4ed8; } .t-bigbag { background: #d9f5e3; color: #146c3b; } .t-pall { background: #fff1d6; color: #9a5b00; }
+.type-valg { cursor: pointer; font-size: 14px; padding: 8px 18px; opacity: .6; } .type-valg.valgt { opacity: 1; border-color: var(--g600); background: var(--g100); color: var(--g800); }
+.type-valg:disabled { cursor: not-allowed; opacity: .3; }
+.farger > div { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.farge { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+.farge.valgt { box-shadow: 0 0 0 3px var(--ink); }
+.farger input[type=color] { width: 38px; height: 32px; padding: 0; border: 0; background: none; cursor: pointer; }
+.ordre-linje { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ordre-linje .enhet { font-size: 12px; color: var(--muted); }
+
+.ordre-linje select { font: inherit; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); min-width: 0; }
+.ordre-linje input { font: inherit; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; }

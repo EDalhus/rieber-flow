@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useDash } from './dashctx';
 import { EKSTRA_WIDGETS } from './widgets-ekstra';
-import { fmtDato, fmtTonn, fristTekst } from './api';
+import { fmtDato, fmtTonn, fristTekst, mengdeTekst } from './api';
 import { IconArrow } from './icons';
 import { Progress, StatusPill } from './ui';
 
@@ -54,7 +54,7 @@ export type Plass = { i: string; s: Str };
 
 function KpiLager() {
   const { data } = useDash();
-  return <Kpi mork tittel="Lager (bulk)" verdi={fmtTonn(data.totalt.tonn_bulk).replace(' t', '')} sub={`${data.totalt.antall_bigbags.toLocaleString('nb-NO')} bigbags på lager`} href="#/" />;
+  return <Kpi mork tittel="Lager (bulk)" verdi={fmtTonn(data.totalt.tonn_bulk).replace(' t', '')} sub={`${data.totalt.antall_bigbags.toLocaleString('nb-NO')} bigbags · ${data.totalt.antall_paller.toLocaleString('nb-NO')} paller`} href="#/" />;
 }
 
 function KpiAnlop() {
@@ -147,6 +147,7 @@ function Batanlop({ s }: { s: Str }) {
   return (
     <section className={`panel ${s === 'S' ? 'kompakt' : ''}`}>
       <h3>Båtanløp</h3>
+      {vis.length === 0 && <p className="muted">Ingen båtanløp ennå. <a href="#/anlop?ny=1" className="nb-lenke">Opprett et →</a></p>}
       <ul className="list">
         {vis.map((b) => (
           <li key={b.id}>
@@ -169,13 +170,15 @@ function Batanlop({ s }: { s: Str }) {
 
 function Beholdning({ s }: { s: Str }) {
   const { data } = useDash();
+  const varer = s === 'S' ? data.varer.slice(0, 3) : data.varer;
   const liste = (
     <ul className="list roomy">
-      {data.varer.map((v) => (
+      {varer.length === 0 && <li className="muted">Ingen produkter ennå – opprett dem under <a href="#/admin" className="nb-lenke">Admin</a>.</li>}
+      {varer.map((v) => (
         <li key={v.id}>
           <span className="salt-dot" style={{ background: v.fargekode }} />
-          <span className="li-main"><b>{v.salttype}</b>{s !== 'S' && <small>{v.antall_bigbags.toLocaleString('nb-NO')} bigbags</small>}</span>
-          <b className="li-r">{fmtTonn(v.tonn_bulk)}</b>
+          <span className="li-main"><b>{v.navn}</b>{s !== 'S' && <small>{v.produktnr} · {v.type === 'Bulk' ? 'bulk' : v.type === 'Bigbag' ? 'bigbag' : 'pall'}</small>}</span>
+          <b className="li-r">{mengdeTekst(v.type, v.lager)}</b>
         </li>
       ))}
     </ul>
@@ -265,7 +268,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'produksjon', tittel: 'Bigbag-produksjon', beskrivelse: 'Produksjon pr. dag (L: 30 dager)', storrelser: { S: [6, 3], M: [6, 6], L: [12, 6] }, standard: 'M', komponent: Produksjon },
   { id: 'lastes-na', tittel: 'Lastes nå', storrelser: { S: [3, 3], M: [6, 3] }, standard: 'S', komponent: LastesNa },
   { id: 'batanlop', tittel: 'Båtanløp', beskrivelse: 'Liste over anløp (L: med fremdrift)', storrelser: { S: [3, 3], M: [3, 6], L: [6, 6] }, standard: 'M', komponent: Batanlop },
-  { id: 'beholdning', tittel: 'Beholdning (on-hand)', beskrivelse: 'Lager pr. salttype (M: med produksjon og salg)', storrelser: { S: [3, 3], M: [6, 6] }, standard: 'M', komponent: Beholdning },
+  { id: 'beholdning', tittel: 'Beholdning (on-hand)', beskrivelse: 'Lager pr. produkt (M: med produksjon og salg)', storrelser: { S: [3, 3], M: [6, 6] }, standard: 'M', komponent: Beholdning },
   { id: 'framdrift', tittel: 'Lasteframdrift', storrelser: { S: [3, 3], M: [3, 6] }, standard: 'M', komponent: Framdrift },
   { id: 'neste-frist', tittel: 'Neste lastebil-frist', storrelser: { S: [3, 3], M: [6, 3] }, standard: 'S', komponent: NesteFrist },
   ...EKSTRA_WIDGETS,

@@ -7,6 +7,7 @@ import { kaibokRoutes } from './kaibok';
 import { fartoyRoutes } from './fartoy';
 import { sokRoutes } from './sok';
 import { vaerRoutes } from './vaer';
+import { produktRoutes } from './produkter';
 import { kalenderRoutes } from './kalender';
 import { diagnose, kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
 
@@ -19,12 +20,16 @@ app.use('/api/*', async (c, next) => {
 });
 
 
-// ---------- Varelager / dashboard ----------
+// ---------- Dashboard ----------
 
-app.get('/api/varelager', async (c) => {
-  const { results } = await c.env.DB.prepare('SELECT * FROM Varelager ORDER BY id').all();
-  return c.json(results);
-});
+/** Utledede kolonner for en SO: navn på (første) produkt og fargekode – hentes fra ordrelinjene. */
+const soKol = (a: string) => `
+  COALESCE((SELECT p.navn FROM SalgsordreLinjer x JOIN Produkter p ON p.id=x.produkt_id WHERE x.so_id=${a}.id ORDER BY x.id LIMIT 1), '')
+    || CASE WHEN (SELECT COUNT(*) FROM SalgsordreLinjer x WHERE x.so_id=${a}.id) > 1
+            THEN ' +' || ((SELECT COUNT(*) FROM SalgsordreLinjer x WHERE x.so_id=${a}.id) - 1) ELSE '' END AS salttype,
+  COALESCE((SELECT p.fargekode FROM SalgsordreLinjer x JOIN Produkter p ON p.id=x.produkt_id WHERE x.so_id=${a}.id ORDER BY x.id LIMIT 1), '#7a857f') AS fargekode`;
+
+const PRODUKTER_SQL = `SELECT * FROM Produkter WHERE aktiv=1 ORDER BY CASE type WHEN 'Bulk' THEN 1 WHEN 'Bigbag' THEN 2 ELSE 3 END, navn`;
 
 // Mock-statistikk: deterministisk pseudo-produksjon pr. dag (bigbags) og salg (tonn).
 function dagsverdi(dagerSiden: number, seed: number, base: number, spenn: number) {
@@ -33,7 +38,8 @@ function dagsverdi(dagerSiden: number, seed: number, base: number, spenn: number
 }
 
 app.get('/api/dashboard', async (c) => {
-  const varer = (await c.env.DB.prepare('SELECT * FROM Varelager ORDER BY id').all()).results as any[];
+  const varer = (await c.env.DB.prepare(PRODUKTER_SQL).all()).results as any[];
+  const sum = (t: string) => varer.filter((v) => v.type === t).reduce((x, v) => x + v.lager, 0);
   const perioder = [1, 3, 7, 30, 90, 365].map((dager) => {
     let bigbags = 0;
     let salgTonn = 0;
@@ -48,10 +54,7 @@ app.get('/api/dashboard', async (c) => {
     const dato = new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
     return { dato, bigbags: dagsverdi(d, 1, 60, 50) };
   });
-  const totalt = {
-    tonn_bulk: varer.reduce((s, v) => s + v.tonn_bulk, 0),
-    antall_bigbags: varer.reduce((s, v) => s + v.antall_bigbags, 0),
-  };
+  const totalt = { tonn_bulk: sum('Bulk'), antall_bigbags: sum('Bigbag'), antall_paller: sum('Pall') };
   return c.json({ varer, totalt, perioder, produksjonPerDag });
 });
 
@@ -101,10 +104,9 @@ app.delete('/api/batanlop/:id', async (c) => {
 
 const STEG_SQL = `
   SELECT l.id AS steg_id, l.batanlop_id, l.so_id, l.rekkefolge_nummer, l.status AS steg_status, l.ferdig_tidspunkt,
-         s.ordrenummer, s.kunde, s.salttype, s.tonn, s.frist, v.fargekode
+         s.ordrenummer, s.kunde, s.tonn, s.frist, ${soKol('s')}
   FROM BatLasteplan l
-  JOIN Salgsordrer s ON s.id=l.so_id
-  JOIN Varelager v ON v.salttype=s.salttype`;
+  JOIN Salgsordrer s ON s.id=l.so_id`;
 
 app.get('/api/batanlop/:id', async (c) => {
   const id = +c.req.param('id');
@@ -170,7 +172,7 @@ app.post('/api/lasteplan/:stegId/ferdig', async (c) => {
   const stegId = +c.req.param('stegId');
   const db = c.env.DB;
   const steg = await db.prepare(
-    `SELECT l.id, l.batanlop_id, l.so_id, l.status, s.salttype, s.tonn
+    `SELECT l.id, l.batanlop_id, l.so_id, l.status, s.tonn
      FROM BatLasteplan l JOIN Salgsordrer s ON s.id=l.so_id WHERE l.id=?`,
   ).bind(stegId).first<any>();
   if (!steg) return c.json({ error: 'Ikke funnet' }, 404);
@@ -182,7 +184,7 @@ app.post('/api/lasteplan/:stegId/ferdig', async (c) => {
   const stmts = [
     db.prepare("UPDATE BatLasteplan SET status='Ferdig', ferdig_tidspunkt=? WHERE id=?").bind(now(), stegId),
     db.prepare("UPDATE Salgsordrer SET status='Ferdig' WHERE id=?").bind(steg.so_id),
-    db.prepare('UPDATE Varelager SET tonn_bulk=MAX(0, tonn_bulk-?) WHERE salttype=?').bind(steg.tonn, steg.salttype),
+    trekkFraLager(db, steg.so_id),
   ];
   if (neste) {
     stmts.push(
@@ -197,13 +199,20 @@ app.post('/api/lasteplan/:stegId/ferdig', async (c) => {
   return c.json({ ok: true });
 });
 
+/** Trekker ordrelinjene fra lagerbeholdningen (bulk i tonn, bigbags/paller i antall). */
+const trekkFraLager = (db: D1Database, soId: number) =>
+  db.prepare(
+    `UPDATE Produkter SET lager = MAX(0, lager - COALESCE((SELECT SUM(antall) FROM SalgsordreLinjer WHERE so_id=?1 AND produkt_id=Produkter.id), 0))
+     WHERE id IN (SELECT produkt_id FROM SalgsordreLinjer WHERE so_id=?1)`,
+  ).bind(soId);
+
 /** Ferdig lastet båt får en kaibok-føring automatisk (mannskapet fyller inn tilbakemelding etterpå). */
 async function opprettKaibokFraAnlop(db: D1Database, batanlopId: number) {
   const bat = await db.prepare('SELECT skipsnavn, mmsi FROM Batanlop WHERE id=?').bind(batanlopId).first<{ skipsnavn: string; mmsi: string | null }>();
   if (!bat) return;
   const { results } = await db.prepare(
-    `SELECT l.emballasje, SUM(l.antall*l.kg_per_enhet)/1000.0 AS tonn FROM BatLasteplan p
-     JOIN SalgsordreLinjer l ON l.so_id=p.so_id WHERE p.batanlop_id=? GROUP BY l.emballasje`,
+    `SELECT pr.type AS emballasje, SUM(l.antall*pr.kg_per_enhet)/1000.0 AS tonn FROM BatLasteplan p
+     JOIN SalgsordreLinjer l ON l.so_id=p.so_id JOIN Produkter pr ON pr.id=l.produkt_id WHERE p.batanlop_id=? GROUP BY pr.type`,
   ).bind(batanlopId).all<{ emballasje: string; tonn: number }>();
   const bulk = results.some((r) => r.emballasje === 'Bulk');
   const pall = results.some((r) => r.emballasje !== 'Bulk');
@@ -222,7 +231,9 @@ async function medLinjer<T extends Record<string, any>>(db: D1Database, rader: T
   const ids = [...new Set(rader.map((r) => r[key] as number))];
   const { results } = await db
     .prepare(
-      `SELECT l.*, v.fargekode FROM SalgsordreLinjer l JOIN Varelager v ON v.salttype=l.salttype
+      `SELECT l.id, l.so_id, l.produkt_id, l.antall, p.produktnr, p.navn AS produkt, p.navn AS salttype, p.type AS emballasje,
+              p.enhet, p.kg_per_enhet, p.fargekode
+       FROM SalgsordreLinjer l JOIN Produkter p ON p.id=l.produkt_id
        WHERE l.so_id IN (${ids.map(() => '?').join(',')}) ORDER BY l.id`,
     )
     .bind(...ids)
@@ -232,7 +243,7 @@ async function medLinjer<T extends Record<string, any>>(db: D1Database, rader: T
 
 // ---------- Salgsordrer ----------
 
-const SO_SQL = `SELECT s.*, v.fargekode FROM Salgsordrer s JOIN Varelager v ON v.salttype=s.salttype`;
+const SO_SQL = `SELECT s.*, ${soKol('s')} FROM Salgsordrer s`;
 
 app.get('/api/salgsordrer', async (c) => {
   const { results } = await c.env.DB.prepare(`${SO_SQL} ORDER BY s.frist`).all();
@@ -253,33 +264,34 @@ app.get('/api/salgsordrer/:id', async (c) => {
   return c.json((await medLinjer(c.env.DB, [so], 'id'))[0]);
 });
 
-type NyLinje = { produkt: string; salttype: string; emballasje: 'Bulk' | 'Bigbag' | 'Pall'; antall: number; enhet: string; kg_per_enhet: number };
+type NyLinje = { produkt_id: number; antall: number };
 
-/** Opprett SO. Med `linjer` beregnes tonn (og salttype) fra innholdet. */
+/** Opprett SO fra produktlinjer (SKU + antall). Tonn beregnes fra produktenes vekt. */
 app.post('/api/salgsordrer', async (c) => {
-  const b = await c.req.json<{ ordrenummer: string; kunde: string; salttype?: string; tonn?: number; frist: string; linjer?: NyLinje[] }>();
+  const b = await c.req.json<{ ordrenummer: string; kunde: string; frist: string; linjer?: NyLinje[] }>();
   const linjer = b.linjer ?? [];
-  const tonn = linjer.length ? linjer.reduce((s, l) => s + (l.antall * l.kg_per_enhet) / 1000, 0) : b.tonn;
-  const salttype = linjer[0]?.salttype ?? b.salttype;
-  if (!b.ordrenummer || !b.kunde || !salttype || !tonn || !(tonn > 0) || !b.frist) return c.json({ error: 'Ugyldig ordre' }, 400);
-  const r = await c.env.DB.prepare('INSERT INTO Salgsordrer (ordrenummer, kunde, salttype, tonn, frist) VALUES (?,?,?,?,?)')
-    .bind(b.ordrenummer, b.kunde, salttype, tonn, b.frist).run();
+  if (!b.ordrenummer?.trim() || !b.kunde?.trim() || !b.frist || linjer.length === 0) return c.json({ error: 'Ordrenummer, kunde, frist og minst én produktlinje kreves' }, 400);
+  if (linjer.some((l) => !(l.antall > 0))) return c.json({ error: 'Antall må være større enn 0' }, 400);
+  const ids = [...new Set(linjer.map((l) => l.produkt_id))];
+  const { results: prod } = await c.env.DB.prepare(`SELECT id, kg_per_enhet FROM Produkter WHERE aktiv=1 AND id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all<{ id: number; kg_per_enhet: number }>();
+  if (prod.length !== ids.length) return c.json({ error: 'Ukjent eller deaktivert produkt i ordren' }, 400);
+  const kg = new Map(prod.map((p) => [p.id, p.kg_per_enhet]));
+  const tonn = linjer.reduce((sum, l) => sum + (l.antall * kg.get(l.produkt_id)!) / 1000, 0);
+  const finnes = await c.env.DB.prepare('SELECT id FROM Salgsordrer WHERE ordrenummer=?').bind(b.ordrenummer.trim()).first();
+  if (finnes) return c.json({ error: `Ordrenummer ${b.ordrenummer.trim()} finnes allerede` }, 409);
+  const r = await c.env.DB.prepare('INSERT INTO Salgsordrer (ordrenummer, kunde, tonn, frist) VALUES (?,?,?,?)')
+    .bind(b.ordrenummer.trim(), b.kunde.trim(), tonn, b.frist).run();
   const id = r.meta.last_row_id;
-  if (linjer.length) {
-    await c.env.DB.batch(linjer.map((l) =>
-      c.env.DB.prepare('INSERT INTO SalgsordreLinjer (so_id, produkt, salttype, emballasje, antall, enhet, kg_per_enhet) VALUES (?,?,?,?,?,?,?)')
-        .bind(id, l.produkt, l.salttype, l.emballasje, l.antall, l.enhet, l.kg_per_enhet)));
-  }
+  await c.env.DB.batch(linjer.map((l) => c.env.DB.prepare('INSERT INTO SalgsordreLinjer (so_id, produkt_id, antall) VALUES (?,?,?)').bind(id, l.produkt_id, l.antall)));
   return c.json({ id }, 201);
 });
 
 app.patch('/api/salgsordrer/:id', async (c) => {
   const id = +c.req.param('id');
-  const b = await c.req.json<{ kunde?: string; salttype?: string; tonn?: number; frist?: string; status?: string }>();
+  const b = await c.req.json<{ kunde?: string; frist?: string; status?: string }>();
   await c.env.DB.prepare(
-    `UPDATE Salgsordrer SET kunde=COALESCE(?,kunde), salttype=COALESCE(?,salttype), tonn=COALESCE(?,tonn),
-     frist=COALESCE(?,frist), status=COALESCE(?,status) WHERE id=?`,
-  ).bind(b.kunde ?? null, b.salttype ?? null, b.tonn ?? null, b.frist ?? null, b.status ?? null, id).run();
+    `UPDATE Salgsordrer SET kunde=COALESCE(?,kunde), frist=COALESCE(?,frist), status=COALESCE(?,status) WHERE id=?`,
+  ).bind(b.kunde ?? null, b.frist ?? null, b.status ?? null, id).run();
   return c.json({ ok: true });
 });
 
@@ -291,12 +303,12 @@ app.delete('/api/salgsordrer/:id', async (c) => {
 /** Lastebil-ordre ferdig (fjernes fra køen, trekkes fra lager). */
 app.post('/api/salgsordrer/:id/ferdig', async (c) => {
   const id = +c.req.param('id');
-  const so = await c.env.DB.prepare('SELECT salttype, tonn, status FROM Salgsordrer WHERE id=?').bind(id).first<any>();
+  const so = await c.env.DB.prepare('SELECT status FROM Salgsordrer WHERE id=?').bind(id).first<any>();
   if (!so) return c.json({ error: 'Ikke funnet' }, 404);
   if (so.status !== 'Ferdig') {
     await c.env.DB.batch([
       c.env.DB.prepare("UPDATE Salgsordrer SET status='Ferdig' WHERE id=?").bind(id),
-      c.env.DB.prepare('UPDATE Varelager SET tonn_bulk=MAX(0, tonn_bulk-?) WHERE salttype=?').bind(so.tonn, so.salttype),
+      trekkFraLager(c.env.DB, id),
     ]);
   }
   return c.json({ ok: true });
@@ -308,7 +320,7 @@ app.post('/api/salgsordrer/:id/ferdig', async (c) => {
 app.get('/api/sjafor', async (c) => {
   const db = c.env.DB;
   const bat = await db.prepare(`${BAT_SQL} WHERE b.status='Lasting' ORDER BY b.eta LIMIT 1`).first<any>();
-  const varer = (await db.prepare('SELECT * FROM Varelager ORDER BY id').all()).results;
+  const varer = (await db.prepare(PRODUKTER_SQL).all()).results;
   if (bat) {
     const steg = (await db.prepare(`${STEG_SQL} WHERE l.batanlop_id=? ORDER BY l.rekkefolge_nummer`).bind(bat.id).all()).results as any[];
     const [aktiv = null, neste = null] = await Promise.all(
@@ -425,6 +437,7 @@ kaibokRoutes(app);
 fartoyRoutes(app);
 sokRoutes(app);
 vaerRoutes(app);
+produktRoutes(app);
 kalenderRoutes(app);
 
 // ---------- Demo ----------

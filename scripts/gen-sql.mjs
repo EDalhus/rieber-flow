@@ -7,10 +7,20 @@ const split = (file) =>
     .split(';').map((s) => s.trim()).filter(Boolean);
 
 mkdirSync(new URL('../src/generated', import.meta.url), { recursive: true });
+// Migrasjon = DROP/DELETE fra db/migrasjon-produkter.sql + CREATE-setninger for de ombygde tabellene fra schema.sql
+const MIGRER = [
+  ...split('migrasjon-produkter.sql'),
+  ...split('schema.sql').filter((q) => {
+    const m = q.match(/^CREATE TABLE (\w+)/) ?? q.match(/^CREATE (?:UNIQUE )?INDEX \w+ ON (\w+)/);
+    return m && ['Produkter', 'Salgsordrer', 'SalgsordreLinjer', 'BatLasteplan'].includes(m[1]);
+  }),
+];
+
 writeFileSync(
   new URL('../src/generated/sql.ts', import.meta.url),
   `// AUTO-GENERERT av scripts/gen-sql.mjs – ikke rediger. Kilde: db/schema.sql, db/seed.sql\n` +
     `export const SCHEMA: string[] = ${JSON.stringify(split('schema.sql'), null, 2)};\n` +
-    `export const SEED: string[] = ${JSON.stringify(split('seed.sql'), null, 2)};\n`,
+    `export const SEED: string[] = ${JSON.stringify(split('seed.sql'), null, 2)};\n` +
+    `export const MIGRER: string[] = ${JSON.stringify(MIGRER, null, 2)};\n`,
 );
 console.log('src/generated/sql.ts skrevet');

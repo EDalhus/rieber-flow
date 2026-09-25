@@ -11,16 +11,18 @@ const SIDER: Treff[] = [
   { kategori: 'Sider', id: 'p4', tittel: 'Flåte & kart', sub: 'Din flåte på kartet', href: '#/flate' },
   { kategori: 'Sider', id: 'p5', tittel: 'Kaibok', sub: 'Logg over anløp og tilbakemeldinger', href: '#/kaibok' },
   { kategori: 'Sider', id: 'p6', tittel: 'Kalender', sub: 'Båtanløp, fravær og bemanning', href: '#/kalender' },
+  { kategori: 'Sider', id: 'p7', tittel: 'Admin', sub: 'Produktkatalog: bulk, bigbags og pallevarer', href: '#/admin' },
 ];
 const HANDLINGER: Treff[] = [
   { kategori: 'Handlinger', id: 'h1', tittel: 'Ny kaibok-føring', sub: 'Logg et anløp med bilder', href: '#/kaibok?ny=1' },
   { kategori: 'Handlinger', id: 'h2', tittel: 'Legg til fravær', sub: 'Lege, verksted, skole, ferie, ikke overtid …', href: '#/kalender?nyttFravaer=1' },
+  { kategori: 'Handlinger', id: 'h4', tittel: 'Nytt produkt', sub: 'Legg til bulk-, bigbag- eller pallevare i katalogen', href: '#/admin?ny=1' },
   { kategori: 'Handlinger', id: 'h3', tittel: 'Nytt båtanløp', sub: 'Opprett anløp og bygg lasteplan', href: '#/anlop' },
 ];
 const IKON: Record<string, string> = {
-  Sider: '↗', Handlinger: '⚡', Båtanløp: '🚢', Salgsordrer: '📦', Kaibok: '📖', 'Flåte & båtinfo': '🗺️', Kalender: '📅', Kolleger: '👤', 'Båter i AIS': '📡',
+  Sider: '↗', Handlinger: '⚡', Båtanløp: '🚢', Salgsordrer: '📦', Produkter: '🏷️', Kaibok: '📖', 'Flåte & båtinfo': '🗺️', Kalender: '📅', Kolleger: '👤', 'Båter i AIS': '📡',
 };
-const REKKEFOLGE = ['Sider', 'Handlinger', 'Båtanløp', 'Flåte & båtinfo', 'Båter i AIS', 'Salgsordrer', 'Kaibok', 'Kalender', 'Kolleger'];
+const REKKEFOLGE = ['Sider', 'Handlinger', 'Båtanløp', 'Flåte & båtinfo', 'Båter i AIS', 'Salgsordrer', 'Produkter', 'Kaibok', 'Kalender', 'Kolleger'];
 
 const norm = (s: string) => s.toLowerCase();
 const erMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);

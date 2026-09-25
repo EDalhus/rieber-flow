@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import type { Str, WidgetDef } from './widgets';
 import { useDash } from './dashctx';
-import { api, dagStr, fmtDag, fmtDato, fmtTonn, type Foering, type KalenderSvar, type Posisjon, type SO, useApi } from './api';
+import { api, dagStr, fmtDag, fmtDato, mengdeTekst, type Foering, type KalenderSvar, type Posisjon, type SO, useApi } from './api';
 import { kartverketLag, skipIkon, terminalMarker } from './kart';
 import { TERMINAL, etaTerminal, fmtNm, lastSjovei, sjovei, type Sjofelt } from './sjovei';
 import { Progress, StatusPill } from './ui';
@@ -240,31 +240,34 @@ function Bemanning({ s }: { s: Str }) {
 function LagerOrdre({ s }: { s: Str }) {
   const { data } = useDash();
   const { data: so } = useApi<SO[]>('/salgsordrer', 30000);
+  const apne = (so ?? []).filter((x) => x.status !== 'Ferdig');
   const rader = data.varer.map((v) => {
-    const apne = (so ?? []).filter((x) => x.status !== 'Ferdig' && x.salttype === v.salttype);
-    const behov = apne.reduce((sum, x) => sum + x.tonn, 0);
-    const forste = apne.map((x) => x.frist).sort()[0];
-    return { v, behov, antall: apne.length, forste, mangler: Math.max(0, behov - v.tonn_bulk) };
+    const ordrer = apne.filter((x) => x.linjer?.some((l) => l.produkt_id === v.id));
+    const behov = ordrer.reduce((sum, x) => sum + (x.linjer ?? []).filter((l) => l.produkt_id === v.id).reduce((n, l) => n + l.antall, 0), 0);
+    const forste = ordrer.map((x) => x.frist).sort()[0];
+    return { v, behov, antall: ordrer.length, forste, mangler: Math.max(0, behov - v.lager) };
   });
+  const vis = s === 'S' ? rader.slice(0, 3) : rader;
   return (
     <section className={`panel ${s === 'S' ? 'kompakt' : ''}`}>
       <h3>Lager mot åpne ordrer</h3>
       <div className="lo-liste">
-        {rader.map(({ v, behov, mangler, antall, forste }) => {
-          const maks = Math.max(v.tonn_bulk, behov, 1);
+        {vis.length === 0 && <p className="muted">Ingen produkter ennå – opprett dem under <a href="#/admin" className="nb-lenke">Admin</a>.</p>}
+        {vis.map(({ v, behov, mangler, antall, forste }) => {
+          const maks = Math.max(v.lager, behov, 1);
           return (
             <div key={v.id} className="lo-rad">
-              <div className="row"><b>{v.salttype}</b><span className={mangler ? 'haster' : 'muted'}>{mangler ? `Mangler ${fmtTonn(mangler)}` : 'Dekket'}</span></div>
-              <div className="lo-bar" title={`Lager ${fmtTonn(v.tonn_bulk)} · åpne ordrer ${fmtTonn(behov)}`}>
-                <div className="lo-lager" style={{ width: `${(v.tonn_bulk / maks) * 100}%`, background: v.fargekode }} />
+              <div className="row"><b>{v.navn}</b><span className={mangler ? 'haster' : 'muted'}>{mangler ? `Mangler ${mengdeTekst(v.type, mangler)}` : 'Dekket'}</span></div>
+              <div className="lo-bar" title={`Lager ${mengdeTekst(v.type, v.lager)} · åpne ordrer ${mengdeTekst(v.type, behov)}`}>
+                <div className="lo-lager" style={{ width: `${(v.lager / maks) * 100}%`, background: v.fargekode }} />
                 <div className="lo-behov" style={{ left: `${(behov / maks) * 100}%` }} />
               </div>
-              {s !== 'S' && <div className="muted lo-tekst">Lager {fmtTonn(v.tonn_bulk)} · bestilt {fmtTonn(behov)}{s === 'L' ? ` · ${antall} åpne ordrer${forste ? ` · første frist ${fmtDag(forste.slice(0, 10))}` : ''}` : ''}</div>}
+              {s !== 'S' && <div className="muted lo-tekst">Lager {mengdeTekst(v.type, v.lager)} · bestilt {mengdeTekst(v.type, behov)}{s === 'L' ? ` · ${antall} åpne ordrer${forste ? ` · første frist ${fmtDag(forste.slice(0, 10))}` : ''}` : ''}</div>}
             </div>
           );
         })}
       </div>
-      {s !== 'S' && <p className="muted lo-note">Strek = åpne ordrer (lastebil og båt) som ikke er ferdige.</p>}
+      {s !== 'S' && vis.length > 0 && <p className="muted lo-note">Strek = åpne ordrer (lastebil og båt) som ikke er ferdige.</p>}
     </section>
   );
 }

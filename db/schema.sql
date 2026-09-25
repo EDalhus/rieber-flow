@@ -14,16 +14,26 @@ DROP TABLE IF EXISTS BatLasteplan;
 DROP TABLE IF EXISTS SalgsordreLinjer;
 DROP TABLE IF EXISTS Salgsordrer;
 DROP TABLE IF EXISTS Batanlop;
-DROP TABLE IF EXISTS Varelager;
+DROP TABLE IF EXISTS Produkter;
 
--- Lagerbeholdning pr. salttype. Fargekoden brukes av både web og app.
-CREATE TABLE Varelager (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  salttype        TEXT NOT NULL UNIQUE,
-  fargekode       TEXT NOT NULL,              -- hex, f.eks. '#1E6FFF'
-  tonn_bulk       REAL NOT NULL DEFAULT 0,
-  antall_bigbags  INTEGER NOT NULL DEFAULT 0
+-- Produktkatalog (SKU-er): bulk, bigbags og pallevarer. Administreres på Admin-siden.
+--   Bulk:   lager og ordrelinjer i tonn (kg_per_enhet = 1000, enhet 'tonn')
+--   Bigbag: lager og ordrelinjer i antall bigbags (kg_per_enhet = vekt pr. bigbag)
+--   Pall:   lager og ordrelinjer i antall paller (kg_per_enhet = vekt pr. pall, enhet f.eks. '40 × 25 kg')
+CREATE TABLE Produkter (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  produktnr     TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  navn          TEXT NOT NULL,
+  beskrivelse   TEXT NOT NULL DEFAULT '',
+  type          TEXT NOT NULL CHECK (type IN ('Bulk', 'Bigbag', 'Pall')),
+  enhet         TEXT NOT NULL,
+  kg_per_enhet  REAL NOT NULL CHECK (kg_per_enhet > 0),
+  fargekode     TEXT NOT NULL DEFAULT '#1E6FFF',
+  lager         REAL NOT NULL DEFAULT 0 CHECK (lager >= 0),
+  aktiv         INTEGER NOT NULL DEFAULT 1,
+  opprettet     TEXT NOT NULL
 );
+CREATE INDEX idx_produkt_type ON Produkter(type);
 
 -- Båtanløp (senere hentet fra NAIS Kystverket; mmsi er nøkkelen dit).
 CREATE TABLE Batanlop (
@@ -40,14 +50,13 @@ CREATE TABLE Salgsordrer (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   ordrenummer  TEXT NOT NULL UNIQUE,
   kunde        TEXT NOT NULL,
-  salttype     TEXT NOT NULL REFERENCES Varelager(salttype),
   tonn         REAL NOT NULL CHECK (tonn > 0),
   frist        TEXT NOT NULL,                 -- ISO 8601 UTC
   status       TEXT NOT NULL DEFAULT 'Ny'
                CHECK (status IN ('Ny', 'Planlagt', 'Under lasting', 'Ferdig')),
   batanlop_id  INTEGER REFERENCES Batanlop(id) ON DELETE SET NULL
 );
-CREATE INDEX idx_so_frist   ON Salgsordrer(frist);
+CREATE INDEX idx_so_frist ON Salgsordrer(frist);
 CREATE INDEX idx_so_batanlop ON Salgsordrer(batanlop_id);
 
 -- Låst lastesekvens pr. båt. Steg-status styrer "auto-skjuling" i appen.
@@ -62,18 +71,13 @@ CREATE TABLE BatLasteplan (
   UNIQUE (batanlop_id, rekkefolge_nummer)
 );
 
--- Hva som faktisk ligger i en SO: bulk (tonn), bigbags eller pallevarer (sekker på pall).
--- Bigbag/Pall må klargjøres/plukkes; Bulk lastes direkte av hjullaster.
--- Totalvekt (kg) = antall * kg_per_enhet.
+-- Hva som ligger i en SO: produkt (SKU) og antall. Bulk i tonn, bigbags/paller i antall.
+-- Totalvekt (kg) = antall * Produkter.kg_per_enhet. Bigbag/Pall må klargjøres/plukkes; Bulk lastes direkte.
 CREATE TABLE SalgsordreLinjer (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   so_id         INTEGER NOT NULL REFERENCES Salgsordrer(id) ON DELETE CASCADE,
-  produkt       TEXT NOT NULL,                -- f.eks. 'Fint raffinert salt'
-  salttype      TEXT NOT NULL REFERENCES Varelager(salttype),  -- gir fargekode
-  emballasje    TEXT NOT NULL CHECK (emballasje IN ('Bulk', 'Bigbag', 'Pall')),
-  antall        REAL NOT NULL CHECK (antall > 0),  -- tonn (Bulk), stk bigbag, eller antall paller
-  enhet         TEXT NOT NULL,                -- visningstekst: 'tonn', '1000 kg', '40 × 25 kg'
-  kg_per_enhet  REAL NOT NULL                 -- Bulk: 1000 (pr. tonn), Bigbag: 1000/500, Pall: 40×25=1000
+  produkt_id    INTEGER NOT NULL REFERENCES Produkter(id),
+  antall        REAL NOT NULL CHECK (antall > 0)
 );
 CREATE INDEX idx_linje_so ON SalgsordreLinjer(so_id);
 

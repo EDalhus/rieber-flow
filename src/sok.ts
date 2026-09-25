@@ -17,12 +17,12 @@ export function sokRoutes(app: Hono<Env>) {
     const db = c.env.DB;
     const { bruker } = await hentBruker(c);
 
-    const [bat, so, kai, flate, info, frv, brk, minFlate, ais] = await Promise.all([
+    const [bat, so, kai, flate, info, frv, brk, minFlate, ais, prod] = await Promise.all([
       db.prepare(`SELECT id, skipsnavn, eta, status FROM Batanlop WHERE skipsnavn LIKE ?1 ESCAPE '\\' OR mmsi LIKE ?1 ESCAPE '\\' ORDER BY eta DESC LIMIT 5`).bind(p).all<any>(),
       db.prepare(
-        `SELECT DISTINCT s.id, s.ordrenummer, s.kunde, s.tonn, s.status, s.batanlop_id, s.salttype FROM Salgsordrer s
-         LEFT JOIN SalgsordreLinjer l ON l.so_id = s.id
-         WHERE s.ordrenummer LIKE ?1 ESCAPE '\\' OR s.kunde LIKE ?1 ESCAPE '\\' OR s.salttype LIKE ?1 ESCAPE '\\' OR l.produkt LIKE ?1 ESCAPE '\\'
+        `SELECT DISTINCT s.id, s.ordrenummer, s.kunde, s.tonn, s.status, s.batanlop_id, s.frist FROM Salgsordrer s
+         LEFT JOIN SalgsordreLinjer l ON l.so_id = s.id LEFT JOIN Produkter pr ON pr.id = l.produkt_id
+         WHERE s.ordrenummer LIKE ?1 ESCAPE '\\' OR s.kunde LIKE ?1 ESCAPE '\\' OR pr.navn LIKE ?1 ESCAPE '\\' OR pr.produktnr LIKE ?1 ESCAPE '\\'
          ORDER BY s.frist LIMIT 6`,
       ).bind(p).all<any>(),
       db.prepare(
@@ -46,6 +46,7 @@ export function sokRoutes(app: Hono<Env>) {
       db.prepare('SELECT mmsi FROM Flate WHERE bruker_id = ?').bind(bruker.id).all<{ mmsi: string }>(),
       // Alle fartøy i AIS (Kystverket/Barentswatch) – feil her skal aldri ødelegge resten av søket
       sokFartoy(c.env, q, caches.default).catch(() => []),
+      db.prepare(`SELECT id, produktnr, navn, type, beskrivelse FROM Produkter WHERE aktiv = 1 AND (navn LIKE ?1 ESCAPE '\\' OR produktnr LIKE ?1 ESCAPE '\\' OR beskrivelse LIKE ?1 ESCAPE '\\') LIMIT 5`).bind(p).all<any>(),
     ]);
     const iFlate = new Set(minFlate.results.map((f) => f.mmsi));
 
@@ -53,7 +54,7 @@ export function sokRoutes(app: Hono<Env>) {
       ...bat.results.map((b) => ({ kategori: 'Båtanløp', id: `bat${b.id}`, tittel: b.skipsnavn, sub: `ETA ${dato(b.eta)} · ${b.status}`, href: `#/anlop/${b.id}` })),
       ...so.results.map((s) => ({
         kategori: 'Salgsordrer', id: `so${s.id}`, tittel: `${s.ordrenummer} · ${s.kunde}`,
-        sub: `${s.tonn} t ${s.salttype} · ${s.status}${s.batanlop_id ? ' · på båt' : ''}`, href: s.batanlop_id ? `#/anlop/${s.batanlop_id}` : '#/so-ko',
+        sub: `${s.tonn} t · ${s.status}${s.batanlop_id ? ' · på båt' : ''}`, href: s.batanlop_id ? `#/anlop/${s.batanlop_id}` : '#/so-ko',
       })),
       ...kai.results.map((k) => ({
         kategori: 'Kaibok', id: `kai${k.id}`, tittel: `${k.baatnavn} · ${dato(k.kai_dato)}`,
@@ -69,6 +70,7 @@ export function sokRoutes(app: Hono<Env>) {
         kategori: 'Kalender', id: `frv${f.id}`, tittel: `${f.navn} – ${f.kategori}${f.tittel ? `: ${f.tittel}` : ''}`,
         sub: `${dato(f.dato_fra)}${f.dato_til !== f.dato_fra ? ` – ${dato(f.dato_til)}` : ''} · ${f.tid_fra ? `${f.tid_fra}–${f.tid_til}` : 'hele dagen'}`, href: `#/kalender?dato=${f.dato_fra}`,
       })),
+      ...prod.results.map((x) => ({ kategori: 'Produkter', id: `prod${x.id}`, tittel: `${x.navn} · ${x.produktnr}`, sub: `${x.type}${x.beskrivelse ? ` – ${x.beskrivelse.slice(0, 70)}` : ''}`, href: `#/admin?produkt=${x.id}` })),
       ...ais.filter((f) => !iFlate.has(f.mmsi)).slice(0, 6).map((f) => ({
         kategori: 'Båter i AIS', id: `ais${f.mmsi}`, tittel: f.navn || `MMSI ${f.mmsi}`,
         sub: `${f.imo ? `IMO ${f.imo} · ` : ''}MMSI ${f.mmsi} · vis på kartet`, href: `#/flate?ais=${f.mmsi}`,

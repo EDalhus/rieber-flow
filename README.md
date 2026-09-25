@@ -58,6 +58,12 @@ Kartet viser **kun ekte AIS-data** – uten nøkler er det tomt, og flåten star
 - **Båtkort:** live AIS-data, sjøvei/ETA til terminalen og **felles kontaktinfo** (rederi, kaptein/chief med klikkbare telefonnumre, e-post, agent, VHF, kapasitet, notater) som alle kan redigere (`/api/fartoy/:mmsi`).
 - **Bilder:** Kystverkets AIS-API har ingen bilder (NAIS henter dem fra ship-info.com, som ikke har åpent API). Man laster derfor opp egne bilder (nyeste blir hovedbilde), eller legger inn en https-lenke.
 
+## Produktkatalog (Admin)
+
+Siden **Admin** administrerer produktene (SKU-er) – **bulk** (tonn), **bigbags** (antall, vekt pr. bigbag) og **pallevarer** (antall paller, f.eks. 40 × 25 kg). Hvert produkt har produkt-ID/nummer (unikt), navn, beskrivelse, farge (brukes i ordrelister og sjåførappen) og lagerbeholdning. Ordrelinjer refererer til produkter, og lageret trekkes automatisk når en ordre/et lastesteg er ferdig. Produkter som er brukt i ordrer kan ikke slettes (deaktiver dem), og type/vekt låses. Bare roller *Formann*, *Kontor* og *Ledelse* kan endre katalogen; andre har lesetilgang (`/api/admin/produkter`, `/api/produkter`).
+
+Databaser fra før produktkatalogen migreres automatisk ved første kall (`db/migrasjon-produkter.sql`): demo-båtene, demo-ordrene og salttypene fjernes, mens egne båtanløp, flåte, kaibok og kalender beholdes.
+
 ## Kaibok og kalender
 
 - **Kaibok** (`/api/kaibok`): en føring pr. anløp med båtnavn, dato til kai, lasting/lossing, bulk/pallevarer/begge, tonn, vurdering (Bra/Merknad/Avvik), tilbakemelding og bilder. Filtrer på båt (alle anløp for samme båt), operasjon, vare, vurdering, dato og fritekst. Når en båt er ferdig lastet opprettes føringen automatisk, klar for tilbakemelding.

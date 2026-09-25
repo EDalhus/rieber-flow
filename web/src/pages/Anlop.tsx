@@ -206,7 +206,7 @@ export function Lasteplan({ id }: { id: number }) {
         <div className="plan-grid">
           <section>
             <h2>Ledige salgsordrer</h2>
-            <p className="muted">Dra til lasteplanen – på tvers av kunder og salttyper.</p>
+            <p className="muted">Dra til lasteplanen – på tvers av kunder og produkter.</p>
             <div ref={ledigRef} className={`dropzone ${overLedig ? 'over' : ''}`}>
               {ledige?.map((so) => <LedigKort key={so.id} so={so} disabled={ferdig} onAdd={() => lagre([...plan, nyttSteg(so)])} />)}
               {ledige?.length === 0 && <p className="muted">Ingen ledige ordrer</p>}

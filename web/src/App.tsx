@@ -6,8 +6,9 @@ import { SoKo } from './pages/SoKo';
 import { Flate } from './pages/Flate';
 import { Kaibok } from './pages/Kaibok';
 import { Kalender } from './pages/Kalender';
+import { Admin } from './pages/Admin';
 import { SNARVEI, Spotlight } from './Spotlight';
-import { IconDashboard, IconBook, IconCalendar, IconList, IconMap, IconSearch, IconShip, Logo } from './icons';
+import { IconDashboard, IconBook, IconCalendar, IconGear, IconList, IconMap, IconSearch, IconShip, Logo } from './icons';
 
 function useHash() {
   const [h, setH] = useState(location.hash.slice(1) || '/');
@@ -26,6 +27,7 @@ const NAV = [
   ['/flate', 'Flåte & kart', <IconMap />],
   ['/kaibok', 'Kaibok', <IconBook />],
   ['/kalender', 'Kalender', <IconCalendar />],
+  ['/admin', 'Admin', <IconGear />],
 ] as const;
 
 function Bruker() {
@@ -71,6 +73,7 @@ export function App() {
   else if (path.startsWith('/flate')) page = <Flate />;
   else if (path.startsWith('/kaibok')) page = <Kaibok />;
   else if (path.startsWith('/kalender')) page = <Kalender />;
+  else if (path.startsWith('/admin')) page = <Admin />;
   else page = <Dashboard />;
 
   return (

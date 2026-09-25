@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type Salt = { id: number; salttype: string; fargekode: string; tonn_bulk: number; antall_bigbags: number };
+export type ProduktType = 'Bulk' | 'Bigbag' | 'Pall';
+export type Produkt = {
+  id: number; produktnr: string; navn: string; beskrivelse: string; type: ProduktType; enhet: string; kg_per_enhet: number;
+  fargekode: string; lager: number; aktiv: number; antall_linjer?: number;
+};
+export const TYPE_NAVN: Record<ProduktType, string> = { Bulk: 'Bulk', Bigbag: 'Bigbags', Pall: 'Pallevarer' };
+/** Mengde med riktig enhet for produkttypen (tonn / bigbags / paller). */
+export const mengdeTekst = (type: ProduktType, n: number) => {
+  const t = String(Math.round(n * 10) / 10).replace('.', ',');
+  return type === 'Bulk' ? `${t} t` : type === 'Bigbag' ? `${t} bigbags` : `${t} paller`;
+};
 export type Bat = {
   id: number; skipsnavn: string; mmsi: string | null; eta: string;
   status: 'Ventet' | 'Ankommet' | 'Lasting' | 'Ferdig';
   tonn_totalt: number; tonn_lastet: number; antall_steg: number;
 };
 export type Linje = {
-  id: number; so_id: number; produkt: string; salttype: string; fargekode: string;
+  id: number; so_id: number; produkt_id?: number; produktnr?: string; produkt: string; salttype: string; fargekode: string;
   emballasje: 'Bulk' | 'Bigbag' | 'Pall'; antall: number; enhet: string; kg_per_enhet: number;
 };
 export type SO = {
@@ -22,8 +32,8 @@ export type Steg = {
   salttype: string; tonn: number; frist: string; fargekode: string;
 };
 export type Dashboard = {
-  varer: Salt[];
-  totalt: { tonn_bulk: number; antall_bigbags: number };
+  varer: Produkt[];
+  totalt: { tonn_bulk: number; antall_bigbags: number; antall_paller: number };
   perioder: { dager: number; bigbags: number; salgTonn: number }[];
   produksjonPerDag: { dato: string; bigbags: number }[];
 };
