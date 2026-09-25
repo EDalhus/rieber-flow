@@ -4,6 +4,7 @@
 
 DROP TABLE IF EXISTS FartoyBilde;
 DROP TABLE IF EXISTS FartoyInfo;
+DROP TABLE IF EXISTS KaibokLinjer;
 DROP TABLE IF EXISTS KaibokBilder;
 DROP TABLE IF EXISTS Kaibok;
 DROP TABLE IF EXISTS Fravaer;
@@ -122,7 +123,8 @@ CREATE TABLE Kaibok (
   vurdering      TEXT NOT NULL DEFAULT 'Ikke vurdert' CHECK (vurdering IN ('Bra', 'Merknad', 'Avvik', 'Ikke vurdert')),
   tilbakemelding TEXT NOT NULL DEFAULT '',
   opprettet_av   INTEGER REFERENCES Brukere(id) ON DELETE SET NULL,
-  opprettet      TEXT NOT NULL
+  opprettet      TEXT NOT NULL,
+  lager_fort     INTEGER NOT NULL DEFAULT 1     -- 1 = føringen flytter lager (lossing +, lasting −); 0 = lageret er justert på annen måte
 );
 CREATE INDEX idx_kaibok_dato ON Kaibok(kai_dato);
 CREATE INDEX idx_kaibok_baat ON Kaibok(baatnavn);
@@ -192,3 +194,13 @@ CREATE TABLE Oppsett (
   nokkel  TEXT PRIMARY KEY,
   verdi   TEXT NOT NULL
 );
+
+-- Produkter i en kaibok-føring. Lasting trekker fra lageret, lossing legger til (bulk i tonn, bigbags/paller i antall).
+CREATE TABLE KaibokLinjer (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  foering_id  INTEGER NOT NULL REFERENCES Kaibok(id) ON DELETE CASCADE,
+  produkt_id  INTEGER NOT NULL REFERENCES Produkter(id),
+  antall      REAL NOT NULL CHECK (antall > 0)
+);
+CREATE INDEX idx_kaibok_linje ON KaibokLinjer(foering_id);
+CREATE INDEX idx_kaibok_linje_produkt ON KaibokLinjer(produkt_id);

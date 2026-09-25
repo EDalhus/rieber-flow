@@ -66,7 +66,7 @@ Databaser fra før produktkatalogen migreres automatisk ved første kall (`db/mi
 
 ## Kaibok og kalender
 
-- **Kaibok** (`/api/kaibok`): en føring pr. anløp med båtnavn, dato til kai, lasting/lossing, bulk/pallevarer/begge, tonn, vurdering (Bra/Merknad/Avvik), tilbakemelding og bilder. Filtrer på båt (alle anløp for samme båt), operasjon, vare, vurdering, dato og fritekst. Når en båt er ferdig lastet opprettes føringen automatisk, klar for tilbakemelding.
+- **Kaibok** (`/api/kaibok`): en føring pr. anløp med båtnavn, dato til kai, lasting/lossing, **produkter valgt fra katalogen (flere pr. føring)**, vurdering (Bra/Merknad/Avvik), tilbakemelding og bilder. **Lossing legger varene til på lageret, lasting trekker dem fra**; endring og sletting reverserer/justerer lagerbevegelsen. Automatiske føringer fra ferdig lastede båter flytter ikke lager (det er allerede trukket ved ferdigmelding). Varetype og tonn utledes av produktene, og kaiboken kan filtreres på produkt. Filtrer på båt (alle anløp for samme båt), operasjon, vare, vurdering, dato og fritekst. Når en båt er ferdig lastet opprettes føringen automatisk, klar for tilbakemelding.
 - **Bilder** krympes i nettleseren og lagres som base64 i D1 (`KaibokBilder`, maks ~1,2 MB pr. bilde). Ved reell bruk bør de flyttes til R2.
 - **Kalender** (`/api/kalender`, `/api/fravaer`): måned- og listevisning med båtanløp (kommende og historikk) og alles fravær. Hver dag viser bemanning (`på jobb / totalt`) og hvem som ikke kan jobbe overtid. Man kan bare endre og slette egne fravær.
 

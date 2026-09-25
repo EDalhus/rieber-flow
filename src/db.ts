@@ -48,6 +48,14 @@ async function oppdaterOgRydd(db: D1Database) {
   if (!(await db.prepare("SELECT 1 AS x FROM pragma_table_info('Produkter') WHERE name='pallertype'").first())) {
     await db.prepare('ALTER TABLE Produkter ADD COLUMN pallertype TEXT').run();
   }
+  if (!(await db.prepare("SELECT 1 AS x FROM pragma_table_info('Kaibok') WHERE name='lager_fort'").first())) {
+    await db.prepare('ALTER TABLE Kaibok ADD COLUMN lager_fort INTEGER NOT NULL DEFAULT 1').run();
+  }
+  await db.batch([
+    db.prepare('CREATE TABLE IF NOT EXISTS KaibokLinjer (id INTEGER PRIMARY KEY AUTOINCREMENT, foering_id INTEGER NOT NULL REFERENCES Kaibok(id) ON DELETE CASCADE, produkt_id INTEGER NOT NULL REFERENCES Produkter(id), antall REAL NOT NULL CHECK (antall > 0))'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_kaibok_linje ON KaibokLinjer(foering_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_kaibok_linje_produkt ON KaibokLinjer(produkt_id)'),
+  ]);
   if (await db.prepare("SELECT 1 AS x FROM Oppsett WHERE nokkel='demo-fjernet'").first()) return;
   const soDemo = ['SO-10041', 'SO-10042', 'SO-10043', 'SO-10044', 'SO-10051', 'SO-10052', 'SO-10061', 'SO-10071', 'SO-10072', 'SO-10073', 'SO-10074', 'SO-10075'];
   const brukerDemo = ['kontor@rieber.demo', 'ledelse@rieber.demo', 'ola@rieber.demo', 'tone@rieber.demo', 'per@rieber.demo'];

@@ -119,6 +119,11 @@ export type Foering = {
   operasjon: 'Lasting' | 'Lossing'; varetype: 'Bulk' | 'Pallevarer' | 'Begge'; tonn: number | null;
   vurdering: Vurdering; tilbakemelding: string; antall_bilder?: number; antall_anlop?: number;
   opprettet_av_navn?: string | null; bilder?: { id: number; filnavn: string; storrelse: number }[];
+  lager_fort?: number; linjer?: KaibokLinje[];
+};
+export type KaibokLinje = {
+  id: number; foering_id: number; produkt_id: number; antall: number; produktnr: string; produkt: string; type: ProduktType;
+  enhet: string; kg_per_enhet: number; pallertype: string | null; fargekode: string; lager: number; aktiv: number;
 };
 export type KaibokBaat = { baatnavn: string; antall: number; siste: string; forste: string; avvik: number };
 

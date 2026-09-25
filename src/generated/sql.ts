@@ -2,6 +2,7 @@
 export const SCHEMA: string[] = [
   "DROP TABLE IF EXISTS FartoyBilde",
   "DROP TABLE IF EXISTS FartoyInfo",
+  "DROP TABLE IF EXISTS KaibokLinjer",
   "DROP TABLE IF EXISTS KaibokBilder",
   "DROP TABLE IF EXISTS Kaibok",
   "DROP TABLE IF EXISTS Fravaer",
@@ -26,7 +27,8 @@ export const SCHEMA: string[] = [
   "CREATE TABLE Brukere (\n  id      INTEGER PRIMARY KEY AUTOINCREMENT,\n  epost   TEXT NOT NULL UNIQUE,\n  navn    TEXT NOT NULL,\n  rolle   TEXT NOT NULL DEFAULT 'Kontor'\n)",
   "CREATE TABLE DashboardLayout (\n  bruker_id   INTEGER PRIMARY KEY REFERENCES Brukere(id) ON DELETE CASCADE,\n  layout      TEXT NOT NULL,                  -- JSON\n  oppdatert   TEXT NOT NULL\n)",
   "CREATE TABLE Flate (\n  bruker_id   INTEGER NOT NULL REFERENCES Brukere(id) ON DELETE CASCADE,\n  mmsi        TEXT NOT NULL,\n  navn        TEXT NOT NULL,\n  lagt_til    TEXT NOT NULL,\n  PRIMARY KEY (bruker_id, mmsi)\n)",
-  "CREATE TABLE Kaibok (\n  id             INTEGER PRIMARY KEY AUTOINCREMENT,\n  batanlop_id    INTEGER REFERENCES Batanlop(id) ON DELETE SET NULL,\n  baatnavn       TEXT NOT NULL,\n  mmsi           TEXT,\n  kai_dato       TEXT NOT NULL,               -- YYYY-MM-DD\n  operasjon      TEXT NOT NULL CHECK (operasjon IN ('Lasting', 'Lossing')),\n  varetype       TEXT NOT NULL CHECK (varetype IN ('Bulk', 'Pallevarer', 'Begge')),\n  tonn           REAL,\n  vurdering      TEXT NOT NULL DEFAULT 'Ikke vurdert' CHECK (vurdering IN ('Bra', 'Merknad', 'Avvik', 'Ikke vurdert')),\n  tilbakemelding TEXT NOT NULL DEFAULT '',\n  opprettet_av   INTEGER REFERENCES Brukere(id) ON DELETE SET NULL,\n  opprettet      TEXT NOT NULL\n)",
+  "CREATE TABLE Kaibok (\n  id             INTEGER PRIMARY KEY AUTOINCREMENT,\n  batanlop_id    INTEGER REFERENCES Batanlop(id) ON DELETE SET NULL,\n  baatnavn       TEXT NOT NULL,\n  mmsi           TEXT,\n  kai_dato       TEXT NOT NULL,               -- YYYY-MM-DD\n  operasjon      TEXT NOT NULL CHECK (operasjon IN ('Lasting', 'Lossing')),\n  varetype       TEXT NOT NULL CHECK (varetype IN ('Bulk', 'Pallevarer', 'Begge')),\n  tonn           REAL,\n  vurdering      TEXT NOT NULL DEFAULT 'Ikke vurdert' CHECK (vurdering IN ('Bra', 'Merknad', 'Avvik', 'Ikke vurdert')),\n  tilbakemelding TEXT NOT NULL DEFAULT '',\n  opprettet_av   INTEGER REFERENCES Brukere(id) ON DELETE SET NULL,\n  opprettet      TEXT NOT NULL,\n  lager_fort     INTEGER NOT NULL DEFAULT 1     -- 1 = føringen flytter lager (lossing +, lasting −)",
+  "0 = lageret er justert på annen måte\n)",
   "CREATE INDEX idx_kaibok_dato ON Kaibok(kai_dato)",
   "CREATE INDEX idx_kaibok_baat ON Kaibok(baatnavn)",
   "CREATE UNIQUE INDEX idx_kaibok_anlop ON Kaibok(batanlop_id) WHERE batanlop_id IS NOT NULL",
@@ -37,7 +39,10 @@ export const SCHEMA: string[] = [
   "CREATE TABLE FartoyInfo (\n  mmsi           TEXT PRIMARY KEY,\n  rederi         TEXT NOT NULL DEFAULT '',\n  kaptein_navn   TEXT NOT NULL DEFAULT '',\n  kaptein_tlf    TEXT NOT NULL DEFAULT '',\n  chief_navn     TEXT NOT NULL DEFAULT '',\n  chief_tlf      TEXT NOT NULL DEFAULT '',\n  epost          TEXT NOT NULL DEFAULT '',\n  agent_navn     TEXT NOT NULL DEFAULT '',\n  agent_tlf      TEXT NOT NULL DEFAULT '',\n  vhf_kanal      TEXT NOT NULL DEFAULT '',\n  kapasitet      TEXT NOT NULL DEFAULT '',\n  bilde_url      TEXT NOT NULL DEFAULT '',\n  notater        TEXT NOT NULL DEFAULT '',\n  oppdatert      TEXT NOT NULL,\n  oppdatert_av   INTEGER REFERENCES Brukere(id) ON DELETE SET NULL\n)",
   "CREATE TABLE FartoyBilde (\n  id            INTEGER PRIMARY KEY AUTOINCREMENT,\n  mmsi          TEXT NOT NULL,\n  content_type  TEXT NOT NULL,\n  storrelse     INTEGER NOT NULL,\n  data          TEXT NOT NULL,\n  hoved         INTEGER NOT NULL DEFAULT 0,\n  opplastet     TEXT NOT NULL\n)",
   "CREATE INDEX idx_fartoybilde_mmsi ON FartoyBilde(mmsi)",
-  "CREATE TABLE Oppsett (\n  nokkel  TEXT PRIMARY KEY,\n  verdi   TEXT NOT NULL\n)"
+  "CREATE TABLE Oppsett (\n  nokkel  TEXT PRIMARY KEY,\n  verdi   TEXT NOT NULL\n)",
+  "CREATE TABLE KaibokLinjer (\n  id          INTEGER PRIMARY KEY AUTOINCREMENT,\n  foering_id  INTEGER NOT NULL REFERENCES Kaibok(id) ON DELETE CASCADE,\n  produkt_id  INTEGER NOT NULL REFERENCES Produkter(id),\n  antall      REAL NOT NULL CHECK (antall > 0)\n)",
+  "CREATE INDEX idx_kaibok_linje ON KaibokLinjer(foering_id)",
+  "CREATE INDEX idx_kaibok_linje_produkt ON KaibokLinjer(produkt_id)"
 ];
 export const SEED: string[] = [
   "INSERT INTO Brukere (epost, navn, rolle) VALUES ('formann@rieber.demo', 'Terminalformann', 'Formann')",

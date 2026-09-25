@@ -49,7 +49,7 @@ export function produktRoutes(app: Hono<Env>) {
   app.get('/api/admin/produkter', async (c) => {
     const { bruker } = await hentBruker(c);
     const { results } = await c.env.DB.prepare(
-      `SELECT p.*, (SELECT COUNT(*) FROM SalgsordreLinjer l WHERE l.produkt_id = p.id) AS antall_linjer
+      `SELECT p.*, (SELECT COUNT(*) FROM SalgsordreLinjer l WHERE l.produkt_id = p.id) + (SELECT COUNT(*) FROM KaibokLinjer k WHERE k.produkt_id = p.id) AS antall_linjer
        FROM Produkter p ORDER BY CASE p.type WHEN 'Bulk' THEN 1 WHEN 'Bigbag' THEN 2 ELSE 3 END, p.navn`,
     ).all();
     return c.json({ kanEndre: ADMIN_ROLLER.includes(bruker.rolle), produkter: results });
@@ -84,11 +84,11 @@ export function produktRoutes(app: Hono<Env>) {
     if (feil) return c.json({ error: feil }, 400);
     const n = normaliser(b);
     const gammel = await c.env.DB.prepare(
-      'SELECT type, kg_per_enhet, (SELECT COUNT(*) FROM SalgsordreLinjer WHERE produkt_id = ?1) AS n FROM Produkter WHERE id = ?1',
+      'SELECT type, kg_per_enhet, (SELECT COUNT(*) FROM SalgsordreLinjer WHERE produkt_id = ?1) + (SELECT COUNT(*) FROM KaibokLinjer WHERE produkt_id = ?1) AS n FROM Produkter WHERE id = ?1',
     ).bind(id).first<{ type: string; kg_per_enhet: number; n: number }>();
     if (!gammel) return c.json({ error: 'Ikke funnet' }, 404);
     if (gammel.n > 0 && (gammel.type !== n.type || gammel.kg_per_enhet !== n.kg_per_enhet)) {
-      return c.json({ error: `Produktet brukes i ${gammel.n} ordrelinje(r) – type og vekt kan ikke endres. Opprett et nytt produkt i stedet.` }, 409);
+      return c.json({ error: `Produktet brukes i ${gammel.n} ordre-/kaibok-linje(r) – type og vekt kan ikke endres. Opprett et nytt produkt i stedet.` }, 409);
     }
     const dublett = await c.env.DB.prepare('SELECT id FROM Produkter WHERE produktnr = ? AND id != ?').bind(n.produktnr, id).first();
     if (dublett) return c.json({ error: `Produkt-ID «${n.produktnr}» er allerede i bruk` }, 409);
@@ -102,8 +102,8 @@ export function produktRoutes(app: Hono<Env>) {
     const nei = await krevAdmin(c);
     if (nei) return nei;
     const id = +c.req.param('id');
-    const n = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM SalgsordreLinjer WHERE produkt_id = ?').bind(id).first<{ n: number }>();
-    if ((n?.n ?? 0) > 0) return c.json({ error: `Produktet brukes i ${n!.n} ordrelinje(r) og kan ikke slettes – deaktiver det i stedet.` }, 409);
+    const n = await c.env.DB.prepare('SELECT (SELECT COUNT(*) FROM SalgsordreLinjer WHERE produkt_id = ?1) + (SELECT COUNT(*) FROM KaibokLinjer WHERE produkt_id = ?1) AS n').bind(id).first<{ n: number }>();
+    if ((n?.n ?? 0) > 0) return c.json({ error: `Produktet brukes i ${n!.n} ordre-/kaibok-linje(r) og kan ikke slettes – deaktiver det i stedet.` }, 409);
     await c.env.DB.prepare('DELETE FROM Produkter WHERE id = ?').bind(id).run();
     return c.json({ ok: true });
   });

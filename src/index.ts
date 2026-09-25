@@ -213,11 +213,19 @@ async function opprettKaibokFraAnlop(db: D1Database, batanlopId: number) {
   ).bind(batanlopId).all<{ emballasje: string; tonn: number }>();
   const bulk = results.some((r) => r.emballasje === 'Bulk');
   const pall = results.some((r) => r.emballasje !== 'Bulk');
-  await db.prepare(
-    `INSERT OR IGNORE INTO Kaibok (batanlop_id, baatnavn, mmsi, kai_dato, operasjon, varetype, tonn, opprettet)
-     VALUES (?,?,?,?,?,?,?,?)`,
+  const r = await db.prepare(
+    `INSERT OR IGNORE INTO Kaibok (batanlop_id, baatnavn, mmsi, kai_dato, operasjon, varetype, tonn, opprettet, lager_fort)
+     VALUES (?,?,?,?,?,?,?,?,0)`,
   ).bind(batanlopId, bat.skipsnavn, bat.mmsi, new Date().toISOString().slice(0, 10), 'Lasting',
     bulk && pall ? 'Begge' : pall ? 'Pallevarer' : 'Bulk', results.reduce((s, r) => s + r.tonn, 0), now()).run();
+  // Produktene som ble lastet (lageret er allerede trukket ved ferdigmelding – derfor lager_fort = 0)
+  if (r.meta.changes) {
+    await db.prepare(
+      `INSERT INTO KaibokLinjer (foering_id, produkt_id, antall)
+       SELECT ?1, l.produkt_id, SUM(l.antall) FROM BatLasteplan p JOIN SalgsordreLinjer l ON l.so_id=p.so_id
+       WHERE p.batanlop_id=?2 GROUP BY l.produkt_id`,
+    ).bind(r.meta.last_row_id, batanlopId).run();
+  }
 }
 
 type Linje = { so_id: number; [k: string]: unknown };
