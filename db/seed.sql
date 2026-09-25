@@ -103,3 +103,8 @@ INSERT INTO Fravaer (bruker_id, kategori, tittel, dato_fra, dato_til, tid_fra, t
   ((SELECT id FROM Brukere WHERE epost = 'formann@rieber.demo'), 'Ikke overtid', 'Barnebursdag', date('now', '+3 days'), date('now', '+3 days'), NULL, NULL, 1, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   ((SELECT id FROM Brukere WHERE epost = 'per@rieber.demo'), 'Sykdom', 'Barn syk', date('now', '+1 days'), date('now', '+1 days'), NULL, NULL, 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   ((SELECT id FROM Brukere WHERE epost = 'ola@rieber.demo'), 'Ikke overtid', 'Kan ikke ta overtid', date('now', '+4 days'), date('now', '+4 days'), NULL, NULL, 1, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
+
+-- Eksempel på båtinfo (fiktive kontaktopplysninger)
+INSERT INTO FartoyInfo (mmsi, rederi, kaptein_navn, kaptein_tlf, chief_navn, chief_tlf, epost, agent_navn, agent_tlf, vhf_kanal, kapasitet, notater, oppdatert) VALUES
+  ('257123400', 'Nordic Bulk Shipping AS', 'Kaptein Henrik Moe', '+47 000 00 001', 'Chief Ivar Bakke', '+47 000 00 002', 'bridge@nordicstar.example', 'Sunnmøre Shipping Agency', '+47 000 00 003', 'VHF 12', '8 500 tonn / 3 lasterom', 'Foretrekker kai 2. Ta kontakt med chief 2 timer før ankomst for lugekonfigurasjon.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  ('219456700', 'Baltic Marine Ltd', 'Captain Jens Larsen', '+47 000 00 004', 'Chief Anna Nowak', '+47 000 00 005', 'master@baltictrader.example', '', '', 'VHF 16 → 14', '5 200 tonn / 2 lasterom', 'Engelsktalende mannskap. Sender lasteplan på e-post dagen før.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));

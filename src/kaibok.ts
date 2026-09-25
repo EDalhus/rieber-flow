@@ -23,7 +23,7 @@ function valider(b: Foering): string | null {
   return null;
 }
 
-function tilBase64(buf: ArrayBuffer) {
+export function tilBase64(buf: ArrayBuffer) {
   const b = new Uint8Array(buf);
   let s = '';
   for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));

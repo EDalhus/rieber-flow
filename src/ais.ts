@@ -9,6 +9,7 @@ export type Pos = {
   sog: number | null; cog: number | null; heading: number | null;
   navstatus: number | null; skipstype: number | null;
   destinasjon: string | null; eta: string | null; msgtime: string | null;
+  kallesignal?: string | null; lengde?: number | null; bredde?: number | null; dypgang?: number | null; flagg?: string | null;
 };
 export type Fartoy = { mmsi: string; imo: string | null; navn: string; skipstype: number | null };
 
@@ -60,6 +61,7 @@ function tilPos(raw: any): Pos | null {
     heading: heading != null && heading < 360 ? heading : num(r.courseOverGround),
     navstatus: num(r.navigationalStatus), skipstype: num(r.shipType),
     destinasjon: r.destination?.trim() || null, eta: r.eta ?? null, msgtime: r.msgtime ?? null,
+    kallesignal: r.callSign?.trim() || null, lengde: num(r.shipLength), bredde: num(r.shipWidth), dypgang: num(r.draught), flagg: r.countryCode ?? null,
   };
 }
 

@@ -90,7 +90,14 @@ export function textOn(hex: string) {
 export type Posisjon = {
   mmsi: string; imo?: string | null; navn: string | null; lat: number; lon: number; sog: number | null; cog: number | null; heading: number | null;
   destinasjon: string | null; eta: string | null; msgtime: string | null;
+  skipstype?: number | null; kallesignal?: string | null; lengde?: number | null; bredde?: number | null; dypgang?: number | null; flagg?: string | null;
 };
+export type FartoyInfo = {
+  rederi: string; kaptein_navn: string; kaptein_tlf: string; chief_navn: string; chief_tlf: string; epost: string;
+  agent_navn: string; agent_tlf: string; vhf_kanal: string; kapasitet: string; bilde_url: string; notater: string;
+  oppdatert: string; oppdatert_av_navn: string | null;
+};
+export type FartoyBilde = { id: number; hoved: number };
 export type FlateFartoy = { mmsi: string; navn: string; posisjon: Posisjon | null };
 export type FlateSvar = { kilde: 'ais' | 'simulert'; feil: string | null; fartoy: FlateFartoy[] };
 

@@ -2,6 +2,8 @@
 -- Kjøres på nytt ved reset (DROP først), så seed er idempotent.
 
 
+DROP TABLE IF EXISTS FartoyBilde;
+DROP TABLE IF EXISTS FartoyInfo;
 DROP TABLE IF EXISTS KaibokBilder;
 DROP TABLE IF EXISTS Kaibok;
 DROP TABLE IF EXISTS Fravaer;
@@ -146,3 +148,34 @@ CREATE TABLE Fravaer (
   opprettet     TEXT NOT NULL
 );
 CREATE INDEX idx_fravaer_dato ON Fravaer(dato_fra, dato_til);
+
+-- Felles, brukerstyrt info om en båt (nøkkel = MMSI) – kontaktinfo og annet som er kjekt å ha for hånden.
+CREATE TABLE FartoyInfo (
+  mmsi           TEXT PRIMARY KEY,
+  rederi         TEXT NOT NULL DEFAULT '',
+  kaptein_navn   TEXT NOT NULL DEFAULT '',
+  kaptein_tlf    TEXT NOT NULL DEFAULT '',
+  chief_navn     TEXT NOT NULL DEFAULT '',
+  chief_tlf      TEXT NOT NULL DEFAULT '',
+  epost          TEXT NOT NULL DEFAULT '',
+  agent_navn     TEXT NOT NULL DEFAULT '',
+  agent_tlf      TEXT NOT NULL DEFAULT '',
+  vhf_kanal      TEXT NOT NULL DEFAULT '',
+  kapasitet      TEXT NOT NULL DEFAULT '',
+  bilde_url      TEXT NOT NULL DEFAULT '',
+  notater        TEXT NOT NULL DEFAULT '',
+  oppdatert      TEXT NOT NULL,
+  oppdatert_av   INTEGER REFERENCES Brukere(id) ON DELETE SET NULL
+);
+
+-- Egne bilder av båten. Hovedbildet (hoved=1) vises i båtkortet. Lagres som base64 (som kaibok-bildene).
+CREATE TABLE FartoyBilde (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  mmsi          TEXT NOT NULL,
+  content_type  TEXT NOT NULL,
+  storrelse     INTEGER NOT NULL,
+  data          TEXT NOT NULL,
+  hoved         INTEGER NOT NULL DEFAULT 0,
+  opplastet     TEXT NOT NULL
+);
+CREATE INDEX idx_fartoybilde_mmsi ON FartoyBilde(mmsi);

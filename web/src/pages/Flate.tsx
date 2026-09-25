@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { api, useApi, fmtDato, type Bat, type FlateFartoy, type FlateSvar } from '../api';
+import { api, useApi, type Bat, type FlateFartoy, type FlateSvar } from '../api';
+import { Baatkort } from './Baatkort';
+import { TERMINAL, fmtNm, fmtVarighet, lastSjovei, punktFra, sjovei, type Sjofelt, type Sjovei } from '../sjovei';
 
 const kn = (v: number | null) => (v == null ? '–' : `${v.toFixed(1).replace('.', ',')} kn`);
 const ferdsel = (f: FlateFartoy) => (f.posisjon?.sog ?? 0) > 0.5;
+
+const merke = (f: FlateFartoy) => `${f.navn} · ${kn(f.posisjon?.sog ?? null)}`;
 
 const skipIkon = (rot: number, valgt: boolean, beveger: boolean) =>
   L.divIcon({
@@ -15,12 +19,14 @@ const skipIkon = (rot: number, valgt: boolean, beveger: boolean) =>
   });
 
 /** Kart over Norge (Kartverket) som bare viser fartøyene i brukerens flåte. */
-function Kart({ fartoy, valgt, spor, onVelg }: { fartoy: FlateFartoy[]; valgt: string | null; spor: [number, number][]; onVelg: (m: string) => void }) {
+function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; valgt: string | null; spor: [number, number][]; rute: [number, number][]; onVelg: (m: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const kart = useRef<L.Map | null>(null);
   const markorer = useRef(new Map<string, L.Marker>());
   const linje = useRef<L.Polyline | null>(null);
   const passet = useRef(false);
+  const ringer = useRef<L.LayerGroup | null>(null);
+  const ruteLinje = useRef<L.Polyline | null>(null);
 
   useEffect(() => {
     const m = L.map(el.current!, { zoomControl: false, attributionControl: true }).setView([64.5, 14], 4);
@@ -28,6 +34,10 @@ function Kart({ fartoy, valgt, spor, onVelg }: { fartoy: FlateFartoy[]; valgt: s
     L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topograatone/default/webmercator/{z}/{y}/{x}.png', {
       maxZoom: 18, attribution: '© <a href="https://www.kartverket.no/">Kartverket</a> · AIS: Kystverket via Barentswatch',
     }).addTo(m);
+    L.marker([TERMINAL.lat, TERMINAL.lon], {
+      icon: L.divIcon({ className: 'terminal-ikon', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div>⚓</div>' }), zIndexOffset: 500,
+    }).bindTooltip(`Terminal · ${TERMINAL.navn}`, { direction: 'top', offset: [0, -14] }).addTo(m);
+    ringer.current = L.layerGroup().addTo(m);
     kart.current = m;
     return () => { m.remove(); kart.current = null; markorer.current.clear(); };
   }, []);
@@ -46,10 +56,10 @@ function Kart({ fartoy, valgt, spor, onVelg }: { fartoy: FlateFartoy[]; valgt: s
       let mk = markorer.current.get(f.mmsi);
       if (!mk) {
         mk = L.marker([p.lat, p.lon], { icon: ikon, riseOnHover: true }).addTo(m);
-        mk.bindTooltip(f.navn, { permanent: true, direction: 'right', offset: [12, 0], className: 'ship-label' });
+        mk.bindTooltip(merke(f), { permanent: true, direction: 'right', offset: [12, 0], className: 'ship-label' });
         mk.on('click', () => onVelg(f.mmsi));
         markorer.current.set(f.mmsi, mk);
-      } else { mk.setLatLng([p.lat, p.lon]); mk.setIcon(ikon); }
+      } else { mk.setLatLng([p.lat, p.lon]); mk.setIcon(ikon); mk.setTooltipContent(merke(f)); }
       mk.setZIndexOffset(f.mmsi === valgt ? 1000 : 0);
     }
     for (const [mmsi, mk] of markorer.current) if (!na.has(mmsi)) { mk.remove(); markorer.current.delete(mmsi); }
@@ -62,10 +72,36 @@ function Kart({ fartoy, valgt, spor, onVelg }: { fartoy: FlateFartoy[]; valgt: s
     linje.current = spor.length > 1 ? L.polyline(spor, { color: '#1f7a4d', weight: 3, dashArray: '6 6', opacity: 0.9 }).addTo(kart.current!) : null;
   }, [spor]);
 
+  // Ringer rundt valgt båt: hvor langt den kommer på 15 min, 30 min, 1 t og 2 t ved gjeldende fart
+  const valgtPos = fartoy.find((f) => f.mmsi === valgt)?.posisjon ?? null;
   useEffect(() => {
-    const p = fartoy.find((f) => f.mmsi === valgt)?.posisjon;
-    if (p) kart.current?.flyTo([p.lat, p.lon], Math.max(kart.current.getZoom(), 6), { duration: 0.8 });
+    const g = ringer.current!;
+    g.clearLayers();
+    if (!valgtPos) return;
+    const beveger = (valgtPos.sog ?? 0) >= 1;
+    const ringDef: { nm: number; tekst: string }[] = beveger
+      ? [15, 30, 60, 120].map((min) => ({ nm: (valgtPos.sog! * min) / 60, tekst: `${fmtVarighet(min / 60)} · ${fmtNm((valgtPos.sog! * min) / 60)}` }))
+      : [1, 3, 6, 12].map((nm) => ({ nm, tekst: fmtNm(nm) }));
+    ringDef.forEach((r, n) => {
+      L.circle([valgtPos.lat, valgtPos.lon], { radius: r.nm * 1852, color: '#145a3a', weight: 1.5, dashArray: '5 6', fill: false, opacity: 0.8, interactive: false }).addTo(g);
+      const [lat, lon] = punktFra(valgtPos.lat, valgtPos.lon, 40 + (n % 2) * 12, r.nm);
+      L.marker([lat, lon], { interactive: false, icon: L.divIcon({ className: 'ring-label', html: `<span>${r.tekst}</span>`, iconSize: [0, 0] }) }).addTo(g);
+    });
+  }, [valgtPos?.lat, valgtPos?.lon, valgtPos?.sog]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Zoom til 2-timersringen når man velger en båt
+  useEffect(() => {
+    if (!valgtPos) return;
+    const nm = (valgtPos.sog ?? 0) >= 1 ? Math.max(6, valgtPos.sog! * 2) : 12;
+    const hjorner = [0, 90, 180, 270].map((b) => punktFra(valgtPos.lat, valgtPos.lon, b, nm));
+    kart.current?.fitBounds(L.latLngBounds(hjorner), { padding: [30, 30], maxZoom: 10, animate: true });
   }, [valgt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sjøveien til terminalen
+  useEffect(() => {
+    ruteLinje.current?.remove();
+    ruteLinje.current = rute.length > 1 ? L.polyline(rute, { color: '#0d3b26', weight: 3, opacity: 0.85 }).addTo(kart.current!) : null;
+  }, [rute]);
 
   return <div ref={el} className="kart" />;
 }
@@ -79,6 +115,16 @@ export function Flate() {
   const [treff, setTreff] = useState<{ mmsi: string; imo: string | null; navn: string }[]>([]);
   const [feil, setFeil] = useState<string | null>(null);
   const [diag, setDiag] = useState<Record<string, unknown> | null>(null);
+  const [felt, setFelt] = useState<Sjofelt | null>(null);
+  const [sorter, setSorter] = useState<'standard' | 'naermest'>('standard');
+
+  useEffect(() => { lastSjovei().then(setFelt).catch(() => {}); }, []);
+  // Sjøvei til terminalen for hver båt i flåten (forhåndsberegnet felt – ingen serverkall)
+  const sjoMap = useMemo(() => {
+    const m = new Map<string, Sjovei | null>();
+    if (felt && data) for (const f of data.fartoy) if (f.posisjon) m.set(f.mmsi, sjovei(felt, f.posisjon.lat, f.posisjon.lon));
+    return m;
+  }, [felt, data]);
 
   useEffect(() => {
     if (!valgt) { setSpor([]); return; }
@@ -101,6 +147,10 @@ export function Flate() {
   const fjern = async (mmsi: string) => { await api(`/flate/${mmsi}`, 'DELETE'); if (valgt === mmsi) setValgt(null); reload(); };
   const fraAnlop = (bater ?? []).filter((b) => b.mmsi && !iFlate.has(b.mmsi));
   const valgtF = data.fartoy.find((f) => f.mmsi === valgt);
+  const rute = valgt ? sjoMap.get(valgt)?.sti ?? [] : [];
+  const sortert = sorter === 'naermest'
+    ? [...data.fartoy].sort((a, b) => (sjoMap.get(a.mmsi)?.nm ?? Infinity) - (sjoMap.get(b.mmsi)?.nm ?? Infinity))
+    : data.fartoy;
 
   return (
     <>
@@ -126,20 +176,24 @@ export function Flate() {
       {(data.feil || feil) && <div className="error">{data.feil ?? feil}</div>}
 
       <div className="flate-grid">
-        <div className="kart-wrap"><Kart fartoy={data.fartoy} valgt={valgt} spor={spor} onVelg={setValgt} /></div>
+        <div className="kart-wrap"><Kart fartoy={data.fartoy} valgt={valgt} spor={spor} rute={rute} onVelg={setValgt} /></div>
 
         <aside className="panel flate-panel">
-          <h3>Min flåte <span className="muted">· {data.fartoy.length} båter</span></h3>
+         {valgtF ? <Baatkort f={valgtF} sjo={sjoMap.get(valgtF.mmsi) ?? null} onTilbake={() => setValgt(null)} /> : (<>
+          <div className="row"><h3>Min flåte <span className="muted">· {data.fartoy.length} båter</span></h3>
+            <select className="sorter" value={sorter} onChange={(e) => setSorter(e.target.value as 'standard' | 'naermest')}>
+              <option value="standard">Rekkefølge</option><option value="naermest">Nærmest terminalen</option>
+            </select></div>
           <ul className="list flate-liste">
-            {data.fartoy.map((f) => (
+            {sortert.map((f) => (
               <li key={f.mmsi} className={f.mmsi === valgt ? 'valgt' : ''}>
-                <button className="flate-rad" onClick={() => setValgt(f.mmsi === valgt ? null : f.mmsi)}>
+                <button className="flate-rad" onClick={() => setValgt(f.mmsi)}>
                   <span className={`dot ${f.posisjon ? (ferdsel(f) ? 'd-ankommet' : 'd-lasting') : ''}`} />
                   <span className="li-main">
                     <b>{f.navn}</b>
                     <small>
                       {f.posisjon
-                        ? `${kn(f.posisjon.sog)}${f.posisjon.destinasjon ? ` · → ${f.posisjon.destinasjon}` : ''}`
+                        ? `${kn(f.posisjon.sog)}${sjoMap.get(f.mmsi) ? ` · ${fmtNm(sjoMap.get(f.mmsi)!.nm)} til terminalen` : ''}${f.posisjon.destinasjon ? ` · → ${f.posisjon.destinasjon}` : ''}`
                         : 'Ingen AIS-posisjon'}
                     </small>
                   </span>
@@ -149,18 +203,6 @@ export function Flate() {
             ))}
             {data.fartoy.length === 0 && <li className="muted">Flåten er tom – legg til båter under.</li>}
           </ul>
-
-          {valgtF?.posisjon && (
-            <div className="detalj">
-              <b>{valgtF.navn}</b>
-              <span>{valgtF.posisjon.imo ? `IMO ${valgtF.posisjon.imo} · ` : ''}MMSI {valgtF.mmsi}</span>
-              <span>Fart {kn(valgtF.posisjon.sog)} · kurs {valgtF.posisjon.cog != null ? `${Math.round(valgtF.posisjon.cog)}°` : '–'}</span>
-              {valgtF.posisjon.destinasjon && <span>Destinasjon {valgtF.posisjon.destinasjon}</span>}
-              {valgtF.posisjon.eta && <span>ETA {fmtDato(valgtF.posisjon.eta)}</span>}
-              {valgtF.posisjon.msgtime && <span className="muted">Oppdatert {fmtDato(valgtF.posisjon.msgtime)}</span>}
-              <span className="muted">Stiplet linje: siste 24 timer</span>
-            </div>
-          )}
 
           <h3 className="topp-luft">Legg til båt</h3>
           <input className="wide-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søk skipsnavn, IMO- eller MMSI-nummer" />
@@ -181,6 +223,7 @@ export function Flate() {
               </div>
             </>
           )}
+         </>)}
         </aside>
       </div>
     </>
