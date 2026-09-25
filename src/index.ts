@@ -5,6 +5,7 @@ import type { Env } from './types';
 import { hentBruker, now, type Bruker } from './bruker';
 import { kaibokRoutes } from './kaibok';
 import { fartoyRoutes } from './fartoy';
+import { sokRoutes } from './sok';
 import { kalenderRoutes } from './kalender';
 import { diagnose, kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
 
@@ -405,6 +406,7 @@ app.get('/api/ais/spor/:mmsi', async (c) => {
 
 kaibokRoutes(app);
 fartoyRoutes(app);
+sokRoutes(app);
 kalenderRoutes(app);
 
 // ---------- Demo ----------

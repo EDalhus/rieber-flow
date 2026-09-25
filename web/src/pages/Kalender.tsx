@@ -15,13 +15,14 @@ type Visning = 'mnd' | 'liste';
 export function Kalender() {
   const idag = dagStr(new Date());
   const [visning, setVisning] = useState<Visning>('mnd');
-  const [mnd, setMnd] = useState(() => { const d = new Date(); d.setDate(1); return d; });
+  const param = useMemo(() => new URLSearchParams(location.hash.split('?')[1] ?? ''), []);
+  const [mnd, setMnd] = useState(() => { const d = param.get('dato') ? new Date(param.get('dato') + 'T12:00:00') : new Date(); d.setDate(1); return d; });
   const [tidligere, setTidligere] = useState(false);
   const [visAnlop, setVisAnlop] = useState(true);
   const [visFravaer, setVisFravaer] = useState(true);
   const [bareMine, setBareMine] = useState(false);
-  const [valgtDag, setValgtDag] = useState<string | null>(null);
-  const [skjema, setSkjema] = useState<{ rediger?: Fravaer; dato?: string } | null>(null);
+  const [valgtDag, setValgtDag] = useState<string | null>(param.get('dato'));
+  const [skjema, setSkjema] = useState<{ rediger?: Fravaer; dato?: string } | null>(param.get('nyttFravaer') ? {} : null);
 
   const start = mandagFor(mnd);
   const dager = useMemo(() => Array.from({ length: 42 }, (_, i) => dagStr(leggTilDager(start, i))), [mnd]); // eslint-disable-line react-hooks/exhaustive-deps

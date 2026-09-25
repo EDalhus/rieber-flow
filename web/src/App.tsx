@@ -6,8 +6,8 @@ import { SoKo } from './pages/SoKo';
 import { Flate } from './pages/Flate';
 import { Kaibok } from './pages/Kaibok';
 import { Kalender } from './pages/Kalender';
-import { Search } from './Search';
-import { IconDashboard, IconBook, IconCalendar, IconList, IconMap, IconShip, Logo } from './icons';
+import { SNARVEI, Spotlight } from './Spotlight';
+import { IconDashboard, IconBook, IconCalendar, IconList, IconMap, IconSearch, IconShip, Logo } from './icons';
 
 function useHash() {
   const [h, setH] = useState(location.hash.slice(1) || '/');
@@ -55,6 +55,14 @@ function Bruker() {
 
 export function App() {
   const path = useHash();
+  const [sok, setSok] = useState(false);
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSok((v) => !v); }
+    };
+    addEventListener('keydown', f);
+    return () => removeEventListener('keydown', f);
+  }, []);
   const m = path.match(/^\/anlop\/(\d+)/);
   let page;
   if (m) page = <Lasteplan id={+m[1]} />;
@@ -94,10 +102,13 @@ export function App() {
       </aside>
       <div className="col">
         <header className="topbar">
-          <Search />
+          <button className="search" onClick={() => setSok(true)} aria-label="Søk">
+            <IconSearch /><span>Søk i alt …</span><kbd>{SNARVEI}</kbd>
+          </button>
           <Bruker />
         </header>
-        <main>{page}</main>
+        <main key={path}>{page}</main>
+        <Spotlight apen={sok} onLukk={() => setSok(false)} />
       </div>
     </div>
   );

@@ -391,3 +391,32 @@ h1 { font-size: 28px; }
 .flate-panel { max-height: calc(100vh - 190px); }
 .info { margin-bottom: 8px; padding: 8px 12px; }
 .diag { margin-bottom: 8px; }
+
+/* Spotlight-søk (⌘K) */
+button.search { border: 0; cursor: pointer; font: inherit; text-align: left; }
+button.search span { flex: 1; color: var(--muted); }
+button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
+.spot-bg { position: fixed; inset: 0; z-index: 200; background: rgba(9, 24, 16, .35); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: flex-start; padding-top: 16vh; animation: spot-inn .12s ease-out; }
+@keyframes spot-inn { from { opacity: 0; } to { opacity: 1; } }
+.spot { width: min(680px, calc(100vw - 24px)); background: rgba(255, 255, 255, .97); border-radius: 22px; box-shadow: 0 30px 90px rgba(0, 0, 0, .35), 0 0 0 1px rgba(0, 0, 0, .06); overflow: hidden; animation: spot-pop .14s ease-out; }
+@keyframes spot-pop { from { transform: translateY(-8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.spot-inn { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); color: var(--muted); }
+.spot-inn svg { width: 24px; height: 24px; flex: none; }
+.spot-inn input { flex: 1; border: 0; outline: 0; background: transparent; font: inherit; font-size: 20px; color: var(--ink); min-width: 0; padding: 0; }
+.spot-spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--g100); border-top-color: var(--g600); animation: snurr .7s linear infinite; }
+@keyframes snurr { to { transform: rotate(360deg); } }
+.spot-liste { max-height: min(56vh, 520px); overflow: auto; padding: 6px 8px 8px; }
+.spot-kat { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 10px 12px 4px; }
+.spot-rad { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; border: 0; background: none; padding: 8px 12px; border-radius: 12px; cursor: pointer; font: inherit; color: inherit; }
+.spot-rad.aktiv { background: var(--g100); }
+.spot-ikon { width: 34px; height: 34px; border-radius: 10px; background: var(--panel); display: grid; place-items: center; font-size: 17px; flex: none; }
+.spot-rad.aktiv .spot-ikon { background: #fff; }
+.spot-tekst { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.spot-tekst b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spot-tekst small { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spot mark { background: #dff5a8; color: inherit; border-radius: 3px; padding: 0 1px; }
+.spot-tom { padding: 28px; text-align: center; color: var(--muted); }
+.spot-fot { display: flex; gap: 18px; padding: 10px 20px; border-top: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--muted); }
+.spot-fot kbd { margin-right: 4px; }
+.spot kbd { background: #eef1ef; border-radius: 6px; padding: 1px 7px; font: 600 11.5px inherit; color: #59645e; }
+@media (max-width: 640px) { .spot-bg { padding-top: 6vh; } .spot-fot { display: none; } }

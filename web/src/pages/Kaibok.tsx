@@ -22,7 +22,7 @@ export function Kaibok() {
   const [filter, setFilter] = useState<Filter>(() => ({ ...TOMT, baat: hashParams().get('baat') ?? '' }));
   const [modal, setModal] = useState<{ id: number | null } | null>(() => {
     const id = hashParams().get('id');
-    return id ? { id: +id } : null;
+    return id ? { id: +id } : hashParams().get('ny') ? { id: null } : null;
   });
 
   const sok = useMemo(() => {

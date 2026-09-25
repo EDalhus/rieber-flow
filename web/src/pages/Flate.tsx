@@ -109,7 +109,7 @@ function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; va
 export function Flate() {
   const { data, reload } = useApi<FlateSvar>('/flate', 30000);
   const { data: bater } = useApi<Bat[]>('/batanlop', 0);
-  const [valgt, setValgt] = useState<string | null>(null);
+  const [valgt, setValgt] = useState<string | null>(() => new URLSearchParams(location.hash.split('?')[1] ?? '').get('mmsi'));
   const [spor, setSpor] = useState<[number, number][]>([]);
   const [q, setQ] = useState('');
   const [treff, setTreff] = useState<{ mmsi: string; imo: string | null; navn: string }[]>([]);
