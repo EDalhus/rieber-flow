@@ -31,11 +31,11 @@ Sjåførappen bygges i et eget prosjekt/repo og bruker **samme data** via denne 
 
 ## Personlig dashboard
 
-Dashboardet er et 12-kolonners grid ([react-grid-layout](https://github.com/react-grid-layout/react-grid-layout)). **Tilpass** lar brukeren flytte, endre størrelse på, fjerne og legge til widgets. Oppsettet lagres per bruker i D1 (`DashboardLayout`) via `GET/PUT/DELETE /api/meg/dashboard`.
+Dashboardet er et tett 12-kolonners rutenett med **standardiserte widget-størrelser**: bredde 3/6/9/12 og høyde 3 eller 6 rader. Hver widget har størrelsene **S/M/L** som viser mer eller mindre informasjon. **Tilpass dashboard** lar brukeren dra widgets (rekkefølge), velge S/M/L, fjerne og legge til. Rutenettet pakkes automatisk (`grid-auto-flow: dense`), og **🧹 Rydd opp** ordner og tilpasser størrelsene så det ikke blir tomme ruter ([web/src/pakking.ts](web/src/pakking.ts)). Oppsettet lagres per bruker i D1 (`DashboardLayout`) via `GET/PUT/DELETE /api/meg/dashboard`.
 
 - **Tilgjengelige widgets** (legg til via «Tilpass dashboard»): Neste båt (mini-kart med fart, sjøvei og tid igjen – krever at båtanløpet er koblet til AIS), Bemanning i dag, Lager mot åpne ordrer, Siste anløp i kaiboken, Vær ved terminalen ([MET Norway](https://api.met.no/), cachet i 10 min), Lasteplaner og Hurtigvalg.
 - **AIS-kobling for anløp:** koble et båtanløp til et fartøy (søk på navn/IMO/MMSI) når du oppretter det, eller via «📡 Koble til AIS» på lasteplan-siden.
-- **Ny widget:** legg til én oppføring i `WIDGETS` i [web/src/widgets.tsx](web/src/widgets.tsx) – den dukker automatisk opp under «Legg til widget».
+- **Ny widget:** legg til én oppføring i `WIDGETS` i [web/src/widgets.tsx](web/src/widgets.tsx) med `storrelser` (f.eks. `{ S: [3, 3], M: [3, 6] }`) og en komponent som tar `s` – den dukker automatisk opp under «Legg til widget».
 - **Innlogging:** identiteten hentes fra Cloudflare Access (`Cf-Access-Authenticated-User-Email`) når det er slått på (Zero Trust → Access → legg Worker-en bak en policy). Uten Access velger man demo-bruker i toppfeltet (`X-Demo-User`) – dette kan forfalskes og er kun til demo.
 
 ## Flåte & kart (AIS fra Kystverket via Barentswatch)

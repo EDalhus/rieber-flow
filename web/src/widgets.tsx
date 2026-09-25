@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useDash } from './dashctx';
 import { EKSTRA_WIDGETS } from './widgets-ekstra';
-import { fmtDato, fmtTonn } from './api';
+import { fmtDato, fmtTonn, fristTekst } from './api';
 import { IconArrow } from './icons';
-import { StatusPill } from './ui';
+import { Progress, StatusPill } from './ui';
 
 export { DashCtx } from './dashctx';
 
@@ -37,6 +37,19 @@ function Gauge({ pct }: { pct: number }) {
   );
 }
 
+// ---------- Størrelser ----------
+// Alle widgets har faste standardstørrelser på et 12-kolonners rutenett (bredde 3/6/9/12, høyde 3 eller 6 rader),
+// så de alltid passer sammen. S/M/L viser mer informasjon jo større de er.
+
+export type Str = 'S' | 'M' | 'L';
+export type Mål = [w: number, h: number];
+export type WidgetDef = {
+  id: string; tittel: string; beskrivelse?: string;
+  storrelser: Partial<Record<Str, Mål>>; standard: Str;
+  komponent: (p: { s: Str }) => ReactNode;
+};
+export type Plass = { i: string; s: Str };
+
 // ---------- Widgets ----------
 
 function KpiLager() {
@@ -63,16 +76,16 @@ function KpiGjenstar() {
   return <Kpi tittel="Gjenstår å laste" verdi={String(Math.round(gjenstar))} sub={`tonn fordelt på ${aktive.filter((b) => b.antall_steg).length} båter`} href="#/anlop" />;
 }
 
-function Produksjon() {
+function Produksjon({ s }: { s: Str }) {
   const { data } = useDash();
-  const dager = data.produksjonPerDag.slice(-7);
+  const dager = data.produksjonPerDag.slice(s === 'L' ? -30 : -7);
   const maks = Math.max(...dager.map((d) => d.bigbags));
   const minst = Math.min(...dager.map((d) => d.bigbags));
   return (
-    <section className="panel">
-      <h3>Bigbag-produksjon siste 7 dager</h3>
-      <div className="pills">
-        {dager.map((d) => {
+    <section className={`panel ${s === 'S' ? 'kompakt' : ''}`}>
+      <h3>Bigbag-produksjon siste {dager.length} dager</h3>
+      <div className={`pills ${s === 'L' ? 'tett' : ''}`}>
+        {dager.map((d, n) => {
           const dag = new Date(d.dato).getDay();
           const helg = dag === 0 || dag === 6;
           const topp = d.bigbags === maks;
@@ -83,7 +96,7 @@ function Produksjon() {
                 {topp && <span className="tip">{d.bigbags}</span>}
                 <div className={`pill-bar ${helg ? 'hatch' : topp ? 'darkest' : 'mid'}`} style={{ height: `${h}%` }} title={`${d.dato}: ${d.bigbags} bigbags`} />
               </div>
-              <span>{new Date(d.dato).toLocaleDateString('nb-NO', { weekday: 'narrow' }).toUpperCase()}</span>
+              <span>{s === 'L' ? (n % 3 === 0 ? new Date(d.dato).getDate() : '') : new Date(d.dato).toLocaleDateString('nb-NO', { weekday: 'narrow' }).toUpperCase()}</span>
             </div>
           );
         })}
@@ -92,40 +105,59 @@ function Produksjon() {
   );
 }
 
-function LastesNa() {
+function LastesNa({ s }: { s: Str }) {
   const { bater } = useDash();
   const lasting = bater.find((b) => b.status === 'Lasting');
+  const pct = lasting ? (lasting.tonn_lastet / Math.max(1, lasting.tonn_totalt)) * 100 : 0;
   return (
-    <section className="panel">
+    <section className={`panel ${s === 'S' ? 'kompakt' : ''}`}>
       <h3>Lastes nå</h3>
       {lasting ? (
-        <>
-          <div className="feature">{lasting.skipsnavn}</div>
-          <p className="muted">{Math.round(lasting.tonn_lastet)} av {Math.round(lasting.tonn_totalt)} tonn · {lasting.antall_steg} steg</p>
-          <a className="btn primary wide" href={`#/anlop/${lasting.id}`}>Åpne lasteplan</a>
-        </>
+        s === 'M' ? (
+          <div className="ln-m">
+            <div>
+              <div className="feature">{lasting.skipsnavn}</div>
+              <p className="muted">{Math.round(lasting.tonn_lastet)} av {Math.round(lasting.tonn_totalt)} tonn · {lasting.antall_steg} steg</p>
+              <Progress value={lasting.tonn_lastet} max={lasting.tonn_totalt} />
+              <a className="btn primary sm" href={`#/anlop/${lasting.id}`}>Åpne lasteplan</a>
+            </div>
+            <div className="ln-pct"><b>{Math.round(pct)}%</b><span>lastet</span></div>
+          </div>
+        ) : (
+          <>
+            <div className="feature">{lasting.skipsnavn}</div>
+            <p className="muted">{Math.round(lasting.tonn_lastet)} av {Math.round(lasting.tonn_totalt)} tonn · {lasting.antall_steg} steg</p>
+            <a className="btn primary sm wide" href={`#/anlop/${lasting.id}`}>Åpne lasteplan</a>
+          </>
+        )
       ) : (
         <>
           <div className="feature">Ingen båt lastes</div>
-          <p className="muted">Start lasting fra et båtanløp med ferdig lasteplan.</p>
-          <a className="btn primary wide" href="#/anlop">Gå til båtanløp</a>
+          <p className="muted">Start lasting fra et båtanløp.</p>
+          <a className="btn primary sm wide" href="#/anlop">Gå til båtanløp</a>
         </>
       )}
     </section>
   );
 }
 
-function Batanlop() {
+function Batanlop({ s }: { s: Str }) {
   const { bater } = useDash();
+  const vis = bater.slice(0, s === 'S' ? 3 : s === 'M' ? 6 : 8);
   return (
-    <section className="panel">
+    <section className={`panel ${s === 'S' ? 'kompakt' : ''}`}>
       <h3>Båtanløp</h3>
       <ul className="list">
-        {bater.map((b) => (
+        {vis.map((b) => (
           <li key={b.id}>
             <a href={`#/anlop/${b.id}`}>
               <span className={`dot d-${b.status.toLowerCase()}`} />
-              <span className="li-main"><b>{b.skipsnavn}</b><small>ETA {fmtDato(b.eta)}</small></span>
+              <span className="li-main">
+                <b>{b.skipsnavn}</b>
+                {s !== 'S' && <small>ETA {fmtDato(b.eta)}</small>}
+                {s === 'L' && b.tonn_totalt > 0 && <Progress value={b.tonn_lastet} max={b.tonn_totalt} />}
+              </span>
+              {s === 'L' && b.tonn_totalt > 0 && <span className="muted li-tonn">{Math.round(b.tonn_lastet)}/{Math.round(b.tonn_totalt)} t</span>}
               <StatusPill status={b.status} />
             </a>
           </li>
@@ -135,36 +167,51 @@ function Batanlop() {
   );
 }
 
-function Beholdning() {
+function Beholdning({ s }: { s: Str }) {
   const { data } = useDash();
+  const liste = (
+    <ul className="list roomy">
+      {data.varer.map((v) => (
+        <li key={v.id}>
+          <span className="salt-dot" style={{ background: v.fargekode }} />
+          <span className="li-main"><b>{v.salttype}</b>{s !== 'S' && <small>{v.antall_bigbags.toLocaleString('nb-NO')} bigbags</small>}</span>
+          <b className="li-r">{fmtTonn(v.tonn_bulk)}</b>
+        </li>
+      ))}
+    </ul>
+  );
+  if (s === 'S') return <section className="panel kompakt"><h3>Beholdning</h3>{liste}</section>;
   return (
     <section className="panel">
       <h3>Beholdning (on-hand)</h3>
-      <ul className="list roomy">
-        {data.varer.map((v) => (
-          <li key={v.id}>
-            <span className="salt-dot" style={{ background: v.fargekode }} />
-            <span className="li-main"><b>{v.salttype}</b><small>{v.antall_bigbags.toLocaleString('nb-NO')} bigbags</small></span>
-            <b className="li-r">{fmtTonn(v.tonn_bulk)}</b>
-          </li>
-        ))}
-      </ul>
-      <table className="mini">
-        <thead><tr><th>Periode</th><th className="num">Bigbags</th><th className="num">Solgt (t)</th></tr></thead>
-        <tbody>
-          {data.perioder.map((p) => (
-            <tr key={p.dager}><td>{p.dager === 1 ? 'I dag' : `${p.dager} dager`}</td><td className="num">{p.bigbags.toLocaleString('nb-NO')}</td><td className="num">{p.salgTonn.toLocaleString('nb-NO')}</td></tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="bh-to">
+        {liste}
+        <table className="mini">
+          <thead><tr><th>Periode</th><th className="num">Bigbags</th><th className="num">Solgt (t)</th></tr></thead>
+          <tbody>
+            {data.perioder.map((p) => (
+              <tr key={p.dager}><td>{p.dager === 1 ? 'I dag' : `${p.dager} dager`}</td><td className="num">{p.bigbags.toLocaleString('nb-NO')}</td><td className="num">{p.salgTonn.toLocaleString('nb-NO')}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
 
-function Framdrift() {
+function Framdrift({ s }: { s: Str }) {
   const { bater } = useDash();
   const lasting = bater.find((b) => b.status === 'Lasting');
   const pct = lasting ? (lasting.tonn_lastet / Math.max(1, lasting.tonn_totalt)) * 100 : 0;
+  if (s === 'S') {
+    return (
+      <section className="panel kompakt">
+        <h3>Lasteframdrift</h3>
+        <div className="fd-s"><b>{Math.round(pct)}%</b><span className="muted">{lasting ? `${Math.round(lasting.tonn_lastet)} / ${Math.round(lasting.tonn_totalt)} t` : 'Ingen lasting'}</span></div>
+        <Progress value={pct} max={100} />
+      </section>
+    );
+  }
   return (
     <section className="panel">
       <h3>Lasteframdrift</h3>
@@ -174,20 +221,34 @@ function Framdrift() {
   );
 }
 
-function NesteFrist() {
+function NesteFrist({ s }: { s: Str }) {
   const { ko } = useDash();
   const now = useNow();
   const neste = ko[0];
   const rest = neste ? Math.max(0, new Date(neste.frist).getTime() - now) : 0;
   const hms = [Math.floor(rest / 3600000), Math.floor(rest / 60000) % 60, Math.floor(rest / 1000) % 60].map((x) => String(x).padStart(2, '0')).join(':');
   return (
-    <section className="panel dark tracker">
+    <section className={`panel dark tracker ${s === 'S' ? 'kompakt' : ''}`}>
       <h3>Neste lastebil-frist</h3>
       {neste ? (
-        <>
-          <div className="clock">{hms}</div>
-          <p>{neste.ordrenummer} · {neste.kunde}<br /><b>{neste.tonn} t {neste.salttype}</b></p>
-        </>
+        s === 'M' ? (
+          <div className="nf-m">
+            <div>
+              <div className="clock">{hms}</div>
+              <p>{neste.ordrenummer} · {neste.kunde}<br /><b>{neste.tonn} t {neste.salttype}</b></p>
+            </div>
+            <ul className="nf-liste">
+              {ko.slice(1, 4).map((o) => (
+                <li key={o.id}><span><b>{o.ordrenummer}</b> {o.kunde}</span><span>{o.tonn} t · {fristTekst(o.frist).tekst}</span></li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <>
+            <div className="clock">{hms}</div>
+            <p>{neste.ordrenummer} · {neste.kunde}<br /><b>{neste.tonn} t {neste.salttype}</b></p>
+          </>
+        )
       ) : <div className="clock">—</div>}
     </section>
   );
@@ -196,31 +257,43 @@ function NesteFrist() {
 // ---------- Register ----------
 // Nye widgets legges bare til her: de dukker automatisk opp i «Legg til widget».
 
-export type WidgetDef = { id: string; tittel: string; beskrivelse?: string; w: number; h: number; minW: number; minH: number; komponent: () => ReactNode };
-
 export const WIDGETS: WidgetDef[] = [
-  { id: 'kpi-lager', tittel: 'Lager (bulk)', w: 3, h: 3, minW: 2, minH: 3, komponent: KpiLager },
-  { id: 'kpi-anlop', tittel: 'Aktive båtanløp', w: 3, h: 3, minW: 2, minH: 3, komponent: KpiAnlop },
-  { id: 'kpi-ordrer', tittel: 'Åpne lastebilordrer', w: 3, h: 3, minW: 2, minH: 3, komponent: KpiOrdrer },
-  { id: 'kpi-gjenstar', tittel: 'Gjenstår å laste', w: 3, h: 3, minW: 2, minH: 3, komponent: KpiGjenstar },
-  { id: 'produksjon', tittel: 'Bigbag-produksjon', w: 6, h: 6, minW: 4, minH: 4, komponent: Produksjon },
-  { id: 'lastes-na', tittel: 'Lastes nå', w: 3, h: 6, minW: 3, minH: 4, komponent: LastesNa },
-  { id: 'batanlop', tittel: 'Båtanløp', w: 3, h: 6, minW: 3, minH: 4, komponent: Batanlop },
-  { id: 'beholdning', tittel: 'Beholdning (on-hand)', w: 5, h: 8, minW: 3, minH: 5, komponent: Beholdning },
-  { id: 'framdrift', tittel: 'Lasteframdrift', w: 4, h: 8, minW: 3, minH: 5, komponent: Framdrift },
-  { id: 'neste-frist', tittel: 'Neste lastebil-frist', w: 3, h: 8, minW: 3, minH: 4, komponent: NesteFrist },
+  { id: 'kpi-lager', tittel: 'Lager (bulk)', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiLager },
+  { id: 'kpi-anlop', tittel: 'Aktive båtanløp', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiAnlop },
+  { id: 'kpi-ordrer', tittel: 'Åpne lastebilordrer', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiOrdrer },
+  { id: 'kpi-gjenstar', tittel: 'Gjenstår å laste', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiGjenstar },
+  { id: 'produksjon', tittel: 'Bigbag-produksjon', beskrivelse: 'Produksjon pr. dag (L: 30 dager)', storrelser: { S: [6, 3], M: [6, 6], L: [12, 6] }, standard: 'M', komponent: Produksjon },
+  { id: 'lastes-na', tittel: 'Lastes nå', storrelser: { S: [3, 3], M: [6, 3] }, standard: 'S', komponent: LastesNa },
+  { id: 'batanlop', tittel: 'Båtanløp', beskrivelse: 'Liste over anløp (L: med fremdrift)', storrelser: { S: [3, 3], M: [3, 6], L: [6, 6] }, standard: 'M', komponent: Batanlop },
+  { id: 'beholdning', tittel: 'Beholdning (on-hand)', beskrivelse: 'Lager pr. salttype (M: med produksjon og salg)', storrelser: { S: [3, 3], M: [6, 6] }, standard: 'M', komponent: Beholdning },
+  { id: 'framdrift', tittel: 'Lasteframdrift', storrelser: { S: [3, 3], M: [3, 6] }, standard: 'M', komponent: Framdrift },
+  { id: 'neste-frist', tittel: 'Neste lastebil-frist', storrelser: { S: [3, 3], M: [6, 3] }, standard: 'S', komponent: NesteFrist },
   ...EKSTRA_WIDGETS,
 ];
 
-export type Plass = { i: string; x: number; y: number; w: number; h: number };
+export const def = (id: string) => WIDGETS.find((w) => w.id === id);
 
-/** Standardoppsettet (samme som før): KPI-rad, tre paneler, tre paneler. */
+/** Standardoppsettet – bygget slik at alle rutene fylles helt uten hull. */
 export const STANDARD: Plass[] = [
-  ...['kpi-lager', 'kpi-anlop', 'kpi-ordrer', 'kpi-gjenstar'].map((i, n) => ({ i, x: n * 3, y: 0, w: 3, h: 3 })),
-  { i: 'produksjon', x: 0, y: 3, w: 6, h: 6 },
-  { i: 'lastes-na', x: 6, y: 3, w: 3, h: 6 },
-  { i: 'batanlop', x: 9, y: 3, w: 3, h: 6 },
-  { i: 'beholdning', x: 0, y: 9, w: 5, h: 8 },
-  { i: 'framdrift', x: 5, y: 9, w: 4, h: 8 },
-  { i: 'neste-frist', x: 9, y: 9, w: 3, h: 8 },
+  { i: 'kpi-lager', s: 'S' }, { i: 'kpi-anlop', s: 'S' }, { i: 'kpi-ordrer', s: 'S' }, { i: 'kpi-gjenstar', s: 'S' },
+  { i: 'produksjon', s: 'M' }, { i: 'lastes-na', s: 'S' }, { i: 'neste-frist', s: 'S' }, { i: 'framdrift', s: 'S' }, { i: 'bemanning', s: 'S' },
+  { i: 'beholdning', s: 'M' }, { i: 'batanlop', s: 'M' }, { i: 'kaibok-siste', s: 'M' },
 ];
+
+// ---------- Lagring (serveren lagrer {i,x,y,w,h}; rekkefølgen = y) ----------
+
+export const tilServer = (l: Plass[]) =>
+  l.flatMap((p, n) => {
+    const m = def(p.i)?.storrelser[p.s];
+    return m ? [{ i: p.i, x: 0, y: n, w: m[0], h: m[1] }] : [];
+  });
+
+export function fraServer(l: { i: string; x: number; y: number; w: number; h: number }[]): Plass[] {
+  return [...l].sort((a, b) => a.y - b.y || a.x - b.x).flatMap((p) => {
+    const d = def(p.i);
+    if (!d) return [];
+    // nærmeste standardstørrelse (gamle oppsett med vilkårlig størrelse tilpasses)
+    const [s] = (Object.entries(d.storrelser) as [Str, Mål][]).sort((a, b) => Math.abs(a[1][0] - p.w) + Math.abs(a[1][1] - p.h) - (Math.abs(b[1][0] - p.w) + Math.abs(b[1][1] - p.h)))[0];
+    return [{ i: p.i, s }];
+  });
+}

@@ -181,8 +181,8 @@ button.icon { background: #eef2ef; border: 0; border-radius: 50%; width: 36px; h
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .wg.edit { outline: 2px dashed var(--g400); outline-offset: 2px; border-radius: 24px; cursor: grab; }
 .wg-overlay { position: absolute; inset: 0; border-radius: 24px; background: rgba(255, 255, 255, .2); display: flex; justify-content: flex-end; align-items: flex-start; padding: 10px; z-index: 5; }
-.wg-title { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); background: var(--g800); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 14px; border-radius: 999px; white-space: nowrap; }
-.wg-x { border: 0; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); cursor: pointer; font-weight: 700; }
+.wg-title { position: absolute; left: 50%; top: -11px; transform: translateX(-50%); background: var(--g800); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 14px; border-radius: 999px; white-space: nowrap; }
+.wg-x { position: absolute; right: 8px; top: 8px; border: 0; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); cursor: pointer; font-weight: 700; }
 .wg-x:hover { background: #fee4e2; color: var(--danger); }
 .react-grid-item.react-grid-placeholder { background: var(--g400); opacity: .25; border-radius: 24px; }
 .react-grid-item > .react-resizable-handle::after { border-color: var(--g700); width: 10px; height: 10px; right: 8px; bottom: 8px; z-index: 6; }
@@ -501,3 +501,47 @@ main > button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
 .ais-treff { width: 100%; display: flex; flex-direction: column; text-align: left; border: 0; background: none; padding: 8px 12px; border-radius: 12px; cursor: pointer; font: inherit; }
 .ais-treff:hover { background: var(--g100); } .ais-treff small { color: var(--muted); }
 .nb-kart .leaflet-control-attribution { display: none; }
+
+/* Dashboard: standardiserte widget-størrelser i et tett rutenett (ingen hull) */
+.dgrid { display: grid; grid-auto-flow: dense; }
+.dgrid > .wg { min-width: 0; min-height: 0; }
+.wg.drar { opacity: .9; box-shadow: 0 20px 50px rgba(0, 0, 0, .25); border-radius: 24px; }
+.wg-str { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; gap: 4px; background: #fff; border-radius: 999px; padding: 3px; box-shadow: 0 2px 10px rgba(0, 0, 0, .22); }
+.wg-str button { border: 0; background: none; width: 30px; height: 26px; border-radius: 999px; font-weight: 800; font-size: 12px; cursor: pointer; color: var(--muted); }
+.wg-str button.valgt { background: var(--g700); color: #fff; }
+.wg-str button:not(.valgt):hover { background: var(--g100); }
+.panel.kompakt { padding: 14px 16px; }
+.panel.kompakt h3 { font-size: 15px; margin-bottom: 8px; }
+.panel.kompakt .list { gap: 6px; }
+.panel.kompakt .salt-dot { width: 26px; height: 26px; }
+.panel.kompakt .li-r { font-size: 15px; }
+.panel.kompakt .feature { font-size: 22px; }
+.panel.kompakt .clock { font-size: 34px; margin: 4px 0; }
+.pills.tett { gap: 4px; } .pills.tett .pill-bar { max-width: none; }
+.ln-m { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; flex: 1; }
+.ln-pct { display: flex; flex-direction: column; align-items: center; } .ln-pct b { font-size: 54px; line-height: 1; letter-spacing: -.02em; color: var(--g600); } .ln-pct span { color: var(--muted); }
+.li-tonn { font-size: 12.5px; white-space: nowrap; }
+.bh-to { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; flex: 1; }
+.bh-to .roomy { margin-bottom: 0; }
+.fd-s { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 8px; } .fd-s b { font-size: 34px; letter-spacing: -.02em; }
+.nf-m { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; flex: 1; }
+.nf-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.nf-liste li { display: flex; justify-content: space-between; gap: 10px; background: rgba(255,255,255,.08); border-radius: 12px; padding: 7px 12px; }
+.nb.kompakt .nb-navn { font-size: 17px; } .nb.kompakt .nb-tall b { font-size: 17px; } .nb.kompakt .nb-plan { margin: 0 0 6px; font-size: 12px; }
+.nb-l { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; flex: 1; min-height: 0; }
+.nb-l .nb-kartboks { margin: 0; min-height: 0; }
+.nb-side { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-width: 0; }
+.nb-detalj { grid-template-columns: auto 1fr; gap: 0 12px; }
+.nb-detalj dt, .nb-detalj dd { padding: 5px 0; font-size: 13px; }
+.bm-navn { margin: 4px 0 0; font-size: 12.5px; }
+.bm-to { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; flex: 1; } .bm-kol { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.kb-tekst { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.vr-s { display: flex; flex-direction: column; gap: 6px; } .vr-s .vr-symbol { font-size: 34px; } .vr-s .vr-temp { font-size: 32px; }
+.vr-s-tall { display: flex; gap: 14px; font-size: 13px; font-weight: 600; }
+.vr-l { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; flex: 1; align-items: center; } .vr-l-timer { display: flex; flex-direction: column; gap: 6px; }
+.lp-liste.to { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+.hv-grid.tre { grid-template-columns: repeat(3, 1fr); }
+.panel.kompakt .hv-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+.panel.kompakt .hv-knapp { padding: 8px 10px; font-size: 13px; gap: 6px; } .panel.kompakt .hv-knapp span { font-size: 16px; }
+
+.btn.hull { border-color: #f1c36b; background: #fff8e5; color: #7a4a00; }
