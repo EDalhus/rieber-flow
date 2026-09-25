@@ -34,8 +34,8 @@ export type Steg = {
 export type Dashboard = {
   varer: Produkt[];
   totalt: { tonn_bulk: number; antall_bigbags: number; antall_paller: number };
-  perioder: { dager: number; bigbags: number; salgTonn: number }[];
-  produksjonPerDag: { dato: string; bigbags: number }[];
+  perioder: { dager: number; tonn: number }[];
+  utlevertPerDag: { dato: string; tonn: number }[];
 };
 export type Bruker = { id: number; epost: string; navn: string; rolle: string };
 export type Meg = { bruker: Bruker; demo: boolean; brukere: Bruker[] };

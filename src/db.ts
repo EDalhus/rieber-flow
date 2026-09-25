@@ -13,6 +13,7 @@ export function ensureDb(db: D1Database): Promise<void> {
       await db.batch(MIGRER.map((q) => db.prepare(q)));
     }
     await fjernDemoBater(db);
+    await oppdaterOgRydd(db);
   })().catch((e) => {
     ready = null;
     throw e;
@@ -35,5 +36,25 @@ async function fjernDemoBater(db: D1Database) {
     db.prepare(`DELETE FROM FartoyBilde WHERE mmsi IN (${ph})`).bind(...PLASSHOLDER),
     db.prepare(`UPDATE Batanlop SET mmsi = NULL WHERE mmsi IN (${ph})`).bind(...PLASSHOLDER),
     db.prepare(`UPDATE Kaibok SET mmsi = NULL WHERE mmsi IN (${ph})`).bind(...PLASSHOLDER),
+  ]);
+}
+
+/** Legger til nye kolonner i eksisterende databaser og fjerner demo-data (én gang). */
+async function oppdaterOgRydd(db: D1Database) {
+  await db.prepare('CREATE TABLE IF NOT EXISTS Oppsett (nokkel TEXT PRIMARY KEY, verdi TEXT NOT NULL)').run();
+  if (!(await db.prepare("SELECT 1 AS x FROM pragma_table_info('Salgsordrer') WHERE name='ferdig_tidspunkt'").first())) {
+    await db.prepare('ALTER TABLE Salgsordrer ADD COLUMN ferdig_tidspunkt TEXT').run();
+  }
+  if (await db.prepare("SELECT 1 AS x FROM Oppsett WHERE nokkel='demo-fjernet'").first()) return;
+  const soDemo = ['SO-10041', 'SO-10042', 'SO-10043', 'SO-10044', 'SO-10051', 'SO-10052', 'SO-10061', 'SO-10071', 'SO-10072', 'SO-10073', 'SO-10074', 'SO-10075'];
+  const brukerDemo = ['kontor@rieber.demo', 'ledelse@rieber.demo', 'ola@rieber.demo', 'tone@rieber.demo', 'per@rieber.demo'];
+  await db.batch([
+    db.prepare("DELETE FROM Batanlop WHERE skipsnavn IN ('MV Nordic Star', 'MS Baltic Trader', 'MV Arctic Breeze')"),
+    db.prepare(`DELETE FROM Salgsordrer WHERE ordrenummer IN (${soDemo.map(() => '?').join(',')})`).bind(...soDemo),
+    // Demo-kaibok har ingen oppretter og ingen kobling til anløp; egne føringer har alltid oppretter
+    db.prepare('DELETE FROM Kaibok WHERE opprettet_av IS NULL AND batanlop_id IS NULL'),
+    db.prepare("DELETE FROM Fravaer WHERE kategori='Ikke overtid' AND tittel='Barnebursdag' AND bruker_id=(SELECT id FROM Brukere WHERE epost='formann@rieber.demo')"),
+    db.prepare(`DELETE FROM Brukere WHERE epost IN (${brukerDemo.map(() => '?').join(',')})`).bind(...brukerDemo),
+    db.prepare("INSERT OR IGNORE INTO Oppsett (nokkel, verdi) VALUES ('demo-fjernet', '1')"),
   ]);
 }

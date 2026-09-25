@@ -4,13 +4,13 @@ Skybasert logistikkverktøy for havneterminalen (MVP / demo). Kontoret planlegge
 
 - **Backend + web:** én Cloudflare Worker ([src/](src)) med Hono-API, Cloudflare D1 og statiske web-filer (Vite + React, [web/](web)).
 - **Mobil:** eget repo (se under).
-- **Mock-data:** alt ligger i D1 ([db/schema.sql](db/schema.sql), [db/seed.sql](db/seed.sql)). Ingen integrasjoner (Dynamics 365, Scale IT, NAIS) i MVP-en.
+- **Data:** alt ligger i D1 ([db/schema.sql](db/schema.sql), [db/seed.sql](db/seed.sql)). Appen starter **tom** (bare én standardbruker) – produkter, båtanløp, ordrer, kaibok og fravær legges inn i appen. Ingen integrasjoner (Dynamics 365, Scale IT) i MVP-en.
 
 ## Deploy til Cloudflare (Workers Builds fra GitHub)
 
 1. Cloudflare Dashboard → **Workers & Pages → Create → Import a repository** → velg dette repoet.
 2. Build command: `npm run build` · Deploy command: `npx wrangler deploy` (rot-mappen).
-3. Ferdig. D1-databasen `rieber-flow-db` opprettes automatisk ved første deploy, og schema + mock-data legges inn ved første API-kall.
+3. Ferdig. D1-databasen `rieber-flow-db` opprettes automatisk ved første deploy, og schema legges inn ved første API-kall.
 
 > Hvis auto-opprettelse av D1 ikke fungerer på kontoen din: `npx wrangler d1 create rieber-flow-db`, og legg `database_id` inn i [wrangler.jsonc](wrangler.jsonc).
 
@@ -62,7 +62,7 @@ Kartet viser **kun ekte AIS-data** – uten nøkler er det tomt, og flåten star
 
 Siden **Admin** administrerer produktene (SKU-er) – **bulk** (tonn), **bigbags** (antall, vekt pr. bigbag) og **pallevarer** (antall paller, f.eks. 40 × 25 kg). Hvert produkt har produkt-ID/nummer (unikt), navn, beskrivelse, farge (brukes i ordrelister og sjåførappen) og lagerbeholdning. Ordrelinjer refererer til produkter, og lageret trekkes automatisk når en ordre/et lastesteg er ferdig. Produkter som er brukt i ordrer kan ikke slettes (deaktiver dem), og type/vekt låses. Bare roller *Formann*, *Kontor* og *Ledelse* kan endre katalogen; andre har lesetilgang (`/api/admin/produkter`, `/api/produkter`).
 
-Databaser fra før produktkatalogen migreres automatisk ved første kall (`db/migrasjon-produkter.sql`): demo-båtene, demo-ordrene og salttypene fjernes, mens egne båtanløp, flåte, kaibok og kalender beholdes.
+Databaser fra før produktkatalogen migreres automatisk ved første kall (`db/migrasjon-produkter.sql`), og gammel demo-data (demo-båter, -ordrer, -kaibok, -fravær og demo-brukere) ryddes bort én gang. Egne båtanløp, flåte, kaibok og kalender beholdes. «Utlevert»-tallene på dashboardet kommer fra ordrer som er markert ferdige.
 
 ## Kaibok og kalender
 

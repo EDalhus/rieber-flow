@@ -31,31 +31,28 @@ const soKol = (a: string) => `
 
 const PRODUKTER_SQL = `SELECT * FROM Produkter WHERE aktiv=1 ORDER BY CASE type WHEN 'Bulk' THEN 1 WHEN 'Bigbag' THEN 2 ELSE 3 END, navn`;
 
-// Mock-statistikk: deterministisk pseudo-produksjon pr. dag (bigbags) og salg (tonn).
-function dagsverdi(dagerSiden: number, seed: number, base: number, spenn: number) {
-  const x = Math.sin((dagerSiden + 1) * 12.9898 + seed * 78.233) * 43758.5453;
-  return Math.round(base + (x - Math.floor(x)) * spenn);
-}
-
+/** Utleverte tonn (ferdige ordrer) pr. dag og pr. periode – ekte tall fra Salgsordrer.ferdig_tidspunkt. */
 app.get('/api/dashboard', async (c) => {
   const varer = (await c.env.DB.prepare(PRODUKTER_SQL).all()).results as any[];
   const sum = (t: string) => varer.filter((v) => v.type === t).reduce((x, v) => x + v.lager, 0);
-  const perioder = [1, 3, 7, 30, 90, 365].map((dager) => {
-    let bigbags = 0;
-    let salgTonn = 0;
-    for (let d = 0; d < dager; d++) {
-      bigbags += dagsverdi(d, 1, 60, 50);
-      salgTonn += dagsverdi(d, 2, 220, 260);
-    }
-    return { dager, bigbags, salgTonn };
+  const { results: ferdige } = await c.env.DB.prepare(
+    "SELECT ferdig_tidspunkt, tonn FROM Salgsordrer WHERE status='Ferdig' AND ferdig_tidspunkt >= ?",
+  ).bind(new Date(Date.now() - 366 * 86400000).toISOString()).all<{ ferdig_tidspunkt: string; tonn: number }>();
+  const dag = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' });
+  const perDag = new Map<string, number>();
+  for (const f of ferdige) perDag.set(dag(f.ferdig_tidspunkt), (perDag.get(dag(f.ferdig_tidspunkt)) ?? 0) + f.tonn);
+  const utlevertPerDag = Array.from({ length: 30 }, (_, i) => {
+    const d = dag(new Date(Date.now() - (29 - i) * 86400000).toISOString());
+    return { dato: d, tonn: Math.round((perDag.get(d) ?? 0) * 10) / 10 };
   });
-  const produksjonPerDag = Array.from({ length: 30 }, (_, i) => {
-    const d = 29 - i;
-    const dato = new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
-    return { dato, bigbags: dagsverdi(d, 1, 60, 50) };
+  const perioder = [1, 3, 7, 30, 90, 365].map((dager) => {
+    const fra = dag(new Date(Date.now() - (dager - 1) * 86400000).toISOString());
+    let tonn = 0;
+    for (const [d, t] of perDag) if (d >= fra) tonn += t;
+    return { dager, tonn: Math.round(tonn * 10) / 10 };
   });
   const totalt = { tonn_bulk: sum('Bulk'), antall_bigbags: sum('Bigbag'), antall_paller: sum('Pall') };
-  return c.json({ varer, totalt, perioder, produksjonPerDag });
+  return c.json({ varer, totalt, perioder, utlevertPerDag });
 });
 
 // ---------- Båtanløp ----------
@@ -183,7 +180,7 @@ app.post('/api/lasteplan/:stegId/ferdig', async (c) => {
     .bind(steg.batanlop_id, stegId).first<{ id: number; so_id: number }>();
   const stmts = [
     db.prepare("UPDATE BatLasteplan SET status='Ferdig', ferdig_tidspunkt=? WHERE id=?").bind(now(), stegId),
-    db.prepare("UPDATE Salgsordrer SET status='Ferdig' WHERE id=?").bind(steg.so_id),
+    db.prepare("UPDATE Salgsordrer SET status='Ferdig', ferdig_tidspunkt=? WHERE id=?").bind(now(), steg.so_id),
     trekkFraLager(db, steg.so_id),
   ];
   if (neste) {
@@ -307,7 +304,7 @@ app.post('/api/salgsordrer/:id/ferdig', async (c) => {
   if (!so) return c.json({ error: 'Ikke funnet' }, 404);
   if (so.status !== 'Ferdig') {
     await c.env.DB.batch([
-      c.env.DB.prepare("UPDATE Salgsordrer SET status='Ferdig' WHERE id=?").bind(id),
+      c.env.DB.prepare("UPDATE Salgsordrer SET status='Ferdig', ferdig_tidspunkt=? WHERE id=?").bind(now(), id),
       trekkFraLager(c.env.DB, id),
     ]);
   }

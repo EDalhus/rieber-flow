@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS BatLasteplan;
 DROP TABLE IF EXISTS SalgsordreLinjer;
 DROP TABLE IF EXISTS Salgsordrer;
 DROP TABLE IF EXISTS Batanlop;
+DROP TABLE IF EXISTS Oppsett;
 DROP TABLE IF EXISTS Produkter;
 
 -- Produktkatalog (SKU-er): bulk, bigbags og pallevarer. Administreres på Admin-siden.
@@ -54,7 +55,8 @@ CREATE TABLE Salgsordrer (
   frist        TEXT NOT NULL,                 -- ISO 8601 UTC
   status       TEXT NOT NULL DEFAULT 'Ny'
                CHECK (status IN ('Ny', 'Planlagt', 'Under lasting', 'Ferdig')),
-  batanlop_id  INTEGER REFERENCES Batanlop(id) ON DELETE SET NULL
+  batanlop_id  INTEGER REFERENCES Batanlop(id) ON DELETE SET NULL,
+  ferdig_tidspunkt TEXT                       -- når ordren ble levert (til statistikk)
 );
 CREATE INDEX idx_so_frist ON Salgsordrer(frist);
 CREATE INDEX idx_so_batanlop ON Salgsordrer(batanlop_id);
@@ -183,3 +185,9 @@ CREATE TABLE FartoyBilde (
   opplastet     TEXT NOT NULL
 );
 CREATE INDEX idx_fartoybilde_mmsi ON FartoyBilde(mmsi);
+
+-- Interne flagg (f.eks. at demo-data er ryddet bort).
+CREATE TABLE Oppsett (
+  nokkel  TEXT PRIMARY KEY,
+  verdi   TEXT NOT NULL
+);

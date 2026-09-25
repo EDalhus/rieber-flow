@@ -561,3 +561,5 @@ main > button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
 
 .ordre-linje select { font: inherit; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); min-width: 0; }
 .ordre-linje input { font: inherit; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; }
+
+.pr-tom { margin: auto; text-align: center; max-width: 340px; }

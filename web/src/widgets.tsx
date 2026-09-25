@@ -78,29 +78,33 @@ function KpiGjenstar() {
 
 function Produksjon({ s }: { s: Str }) {
   const { data } = useDash();
-  const dager = data.produksjonPerDag.slice(s === 'L' ? -30 : -7);
-  const maks = Math.max(...dager.map((d) => d.bigbags));
-  const minst = Math.min(...dager.map((d) => d.bigbags));
+  const dager = data.utlevertPerDag.slice(s === 'L' ? -30 : -7);
+  const maks = Math.max(...dager.map((d) => d.tonn));
+  const total = dager.reduce((x, d) => x + d.tonn, 0);
   return (
     <section className={`panel ${s === 'S' ? 'kompakt' : ''}`}>
-      <h3>Bigbag-produksjon siste {dager.length} dager</h3>
-      <div className={`pills ${s === 'L' ? 'tett' : ''}`}>
-        {dager.map((d, n) => {
-          const dag = new Date(d.dato).getDay();
-          const helg = dag === 0 || dag === 6;
-          const topp = d.bigbags === maks;
-          const h = 45 + ((d.bigbags - minst) / Math.max(1, maks - minst)) * 55;
-          return (
-            <div key={d.dato} className="pill-col">
-              <div className="pill-bar-wrap">
-                {topp && <span className="tip">{d.bigbags}</span>}
-                <div className={`pill-bar ${helg ? 'hatch' : topp ? 'darkest' : 'mid'}`} style={{ height: `${h}%` }} title={`${d.dato}: ${d.bigbags} bigbags`} />
+      <div className="row"><h3>Utlevert siste {dager.length} dager</h3><span className="muted">{fmtTonn(total)}</span></div>
+      {maks === 0 ? (
+        <p className="muted pr-tom">Ingen utleveringer ennå. Tall vises her når ordrer og lastesteg er markert ferdige.</p>
+      ) : (
+        <div className={`pills ${s === 'L' ? 'tett' : ''}`}>
+          {dager.map((d, n) => {
+            const dag = new Date(d.dato).getDay();
+            const helg = dag === 0 || dag === 6;
+            const topp = d.tonn === maks;
+            const h = d.tonn === 0 ? 6 : 20 + (d.tonn / maks) * 80;
+            return (
+              <div key={d.dato} className="pill-col">
+                <div className="pill-bar-wrap">
+                  {topp && <span className="tip">{fmtTonn(d.tonn)}</span>}
+                  <div className={`pill-bar ${d.tonn === 0 ? 'hatch' : helg ? 'hatch' : topp ? 'darkest' : 'mid'}`} style={{ height: `${h}%` }} title={`${d.dato}: ${fmtTonn(d.tonn)}`} />
+                </div>
+                <span>{s === 'L' ? (n % 3 === 0 ? new Date(d.dato).getDate() : '') : new Date(d.dato).toLocaleDateString('nb-NO', { weekday: 'narrow' }).toUpperCase()}</span>
               </div>
-              <span>{s === 'L' ? (n % 3 === 0 ? new Date(d.dato).getDate() : '') : new Date(d.dato).toLocaleDateString('nb-NO', { weekday: 'narrow' }).toUpperCase()}</span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
@@ -190,10 +194,10 @@ function Beholdning({ s }: { s: Str }) {
       <div className="bh-to">
         {liste}
         <table className="mini">
-          <thead><tr><th>Periode</th><th className="num">Bigbags</th><th className="num">Solgt (t)</th></tr></thead>
+          <thead><tr><th>Periode</th><th className="num">Utlevert (t)</th></tr></thead>
           <tbody>
             {data.perioder.map((p) => (
-              <tr key={p.dager}><td>{p.dager === 1 ? 'I dag' : `${p.dager} dager`}</td><td className="num">{p.bigbags.toLocaleString('nb-NO')}</td><td className="num">{p.salgTonn.toLocaleString('nb-NO')}</td></tr>
+              <tr key={p.dager}><td>{p.dager === 1 ? 'I dag' : `${p.dager} dager`}</td><td className="num">{p.tonn.toLocaleString('nb-NO')}</td></tr>
             ))}
           </tbody>
         </table>
@@ -265,10 +269,10 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'kpi-anlop', tittel: 'Aktive båtanløp', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiAnlop },
   { id: 'kpi-ordrer', tittel: 'Åpne lastebilordrer', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiOrdrer },
   { id: 'kpi-gjenstar', tittel: 'Gjenstår å laste', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiGjenstar },
-  { id: 'produksjon', tittel: 'Bigbag-produksjon', beskrivelse: 'Produksjon pr. dag (L: 30 dager)', storrelser: { S: [6, 3], M: [6, 6], L: [12, 6] }, standard: 'M', komponent: Produksjon },
+  { id: 'produksjon', tittel: 'Utlevert tonn', beskrivelse: 'Utleverte tonn pr. dag (L: 30 dager)', storrelser: { S: [6, 3], M: [6, 6], L: [12, 6] }, standard: 'M', komponent: Produksjon },
   { id: 'lastes-na', tittel: 'Lastes nå', storrelser: { S: [3, 3], M: [6, 3] }, standard: 'S', komponent: LastesNa },
   { id: 'batanlop', tittel: 'Båtanløp', beskrivelse: 'Liste over anløp (L: med fremdrift)', storrelser: { S: [3, 3], M: [3, 6], L: [6, 6] }, standard: 'M', komponent: Batanlop },
-  { id: 'beholdning', tittel: 'Beholdning (on-hand)', beskrivelse: 'Lager pr. produkt (M: med produksjon og salg)', storrelser: { S: [3, 3], M: [6, 6] }, standard: 'M', komponent: Beholdning },
+  { id: 'beholdning', tittel: 'Beholdning (on-hand)', beskrivelse: 'Lager pr. produkt (M: med utlevert pr. periode)', storrelser: { S: [3, 3], M: [6, 6] }, standard: 'M', komponent: Beholdning },
   { id: 'framdrift', tittel: 'Lasteframdrift', storrelser: { S: [3, 3], M: [3, 6] }, standard: 'M', komponent: Framdrift },
   { id: 'neste-frist', tittel: 'Neste lastebil-frist', storrelser: { S: [3, 3], M: [6, 3] }, standard: 'S', komponent: NesteFrist },
   ...EKSTRA_WIDGETS,
