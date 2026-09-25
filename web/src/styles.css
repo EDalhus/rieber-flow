@@ -370,3 +370,24 @@ select.user-sel { font: inherit; border: 0; background: transparent; font-weight
 .bk-rader dt, .bk-rader dd { margin: 0; padding: 9px 0; border-bottom: 1px dotted #cfd7d2; font-size: 14px; }
 .bk-rader dt { font-weight: 700; } .bk-rader dd { color: #4a5650; overflow-wrap: anywhere; }
 .bk-rader dt:nth-last-of-type(1), .bk-rader dd:last-of-type { border-bottom: 0; }
+
+/* Kompakt topp: mindre vertikal plass til toppfelt og sidetittel */
+.shell { gap: 10px; padding: 10px; }
+.col { gap: 10px; }
+.sidebar { top: 10px; height: calc(100vh - 20px); }
+.topbar { padding: 6px 14px; border-radius: 22px; }
+.search { height: 40px; }
+.avatar { width: 38px; height: 38px; font-size: 14px; }
+.user small { font-size: 12px; line-height: 1.2; }
+main { padding: 16px 22px 22px; border-radius: 22px; }
+.page-head { align-items: center; margin-bottom: 14px; gap: 10px 16px; }
+.page-head > div:first-child { display: flex; align-items: baseline; gap: 4px 16px; flex-wrap: wrap; }
+h1 { font-size: 28px; }
+.sub { margin: 0; font-size: 14px; }
+.btn, button.primary { padding: 9px 20px; font-size: 14.5px; }
+.btn.sm { padding: 6px 14px; font-size: 13px; }
+.kal-verktoy, .filtre { padding: 12px 16px; }
+.kart-wrap { height: calc(100vh - 190px); }
+.flate-panel { max-height: calc(100vh - 190px); }
+.info { margin-bottom: 8px; padding: 8px 12px; }
+.diag { margin-bottom: 8px; }
