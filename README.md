@@ -48,6 +48,12 @@ Fanen **Flåte & kart** viser et kart over Norge (Kartverket) der bare båtene i
 
 Uten nøkler vises **simulerte posisjoner** langs kysten (merket i UI-et), slik at demoen fungerer uten konto. Demo-flåten bruker plassholder-MMSI-er – i live-modus finner du ekte fartøy via søket. Dekning: norsk økonomisk sone, Svalbard og Jan Mayen; fiskefartøy under 15 m og fritidsbåter under 45 m er ikke med. Se [Barentswatch AIS-dokumentasjon](https://developer.barentswatch.no/docs/AIS/live-ais-api).
 
+## Kaibok og kalender
+
+- **Kaibok** (`/api/kaibok`): en føring pr. anløp med båtnavn, dato til kai, lasting/lossing, bulk/pallevarer/begge, tonn, vurdering (Bra/Merknad/Avvik), tilbakemelding og bilder. Filtrer på båt (alle anløp for samme båt), operasjon, vare, vurdering, dato og fritekst. Når en båt er ferdig lastet opprettes føringen automatisk, klar for tilbakemelding.
+- **Bilder** krympes i nettleseren og lagres som base64 i D1 (`KaibokBilder`, maks ~1,2 MB pr. bilde). Ved reell bruk bør de flyttes til R2.
+- **Kalender** (`/api/kalender`, `/api/fravaer`): måned- og listevisning med båtanløp (kommende og historikk) og alles fravær. Hver dag viser bemanning (`på jobb / totalt`) og hvem som ikke kan jobbe overtid. Man kan bare endre og slette egne fravær.
+
 ## Demo-flyt
 
 1. **Dashboard:** on-hand pr. salttype, produksjon og salg.

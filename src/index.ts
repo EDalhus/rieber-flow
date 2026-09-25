@@ -1,9 +1,12 @@
-import { Hono, type Context } from 'hono';
+import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { ensureDb, resetDb } from './db';
+import type { Env } from './types';
+import { hentBruker, now, type Bruker } from './bruker';
+import { kaibokRoutes } from './kaibok';
+import { kalenderRoutes } from './kalender';
 import { diagnose, kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
 
-type Env = { Bindings: { DB: D1Database; ASSETS: Fetcher } & AisEnv };
 
 const app = new Hono<Env>();
 app.use('/api/*', cors());
@@ -12,7 +15,6 @@ app.use('/api/*', async (c, next) => {
   await next();
 });
 
-const now = () => new Date().toISOString().replace(/\.\d+Z$/, 'Z');
 
 // ---------- Varelager / dashboard ----------
 
@@ -184,8 +186,26 @@ app.post('/api/lasteplan/:stegId/ferdig', async (c) => {
     stmts.push(db.prepare("UPDATE Batanlop SET status='Ferdig' WHERE id=?").bind(steg.batanlop_id));
   }
   await db.batch(stmts);
+  if (!neste) await opprettKaibokFraAnlop(db, steg.batanlop_id);
   return c.json({ ok: true });
 });
+
+/** Ferdig lastet båt får en kaibok-føring automatisk (mannskapet fyller inn tilbakemelding etterpå). */
+async function opprettKaibokFraAnlop(db: D1Database, batanlopId: number) {
+  const bat = await db.prepare('SELECT skipsnavn, mmsi FROM Batanlop WHERE id=?').bind(batanlopId).first<{ skipsnavn: string; mmsi: string | null }>();
+  if (!bat) return;
+  const { results } = await db.prepare(
+    `SELECT l.emballasje, SUM(l.antall*l.kg_per_enhet)/1000.0 AS tonn FROM BatLasteplan p
+     JOIN SalgsordreLinjer l ON l.so_id=p.so_id WHERE p.batanlop_id=? GROUP BY l.emballasje`,
+  ).bind(batanlopId).all<{ emballasje: string; tonn: number }>();
+  const bulk = results.some((r) => r.emballasje === 'Bulk');
+  const pall = results.some((r) => r.emballasje !== 'Bulk');
+  await db.prepare(
+    `INSERT OR IGNORE INTO Kaibok (batanlop_id, baatnavn, mmsi, kai_dato, operasjon, varetype, tonn, opprettet)
+     VALUES (?,?,?,?,?,?,?,?)`,
+  ).bind(batanlopId, bat.skipsnavn, bat.mmsi, new Date().toISOString().slice(0, 10), 'Lasting',
+    bulk && pall ? 'Begge' : pall ? 'Pallevarer' : 'Bulk', results.reduce((s, r) => s + r.tonn, 0), now()).run();
+}
 
 type Linje = { so_id: number; [k: string]: unknown };
 
@@ -296,25 +316,6 @@ app.get('/api/sjafor', async (c) => {
 
 // ---------- Bruker og personlig dashboard ----------
 
-type Bruker = { id: number; epost: string; navn: string; rolle: string };
-
-/**
- * Cloudflare Access setter Cf-Access-Authenticated-User-Email (ekte innlogging).
- * Uten Access brukes X-Demo-User (kun for demo – kan forfalskes) eller første bruker.
- */
-async function hentBruker(c: Context<Env>) {
-  const db = c.env.DB;
-  const access = c.req.header('Cf-Access-Authenticated-User-Email')?.toLowerCase();
-  const epost = access ?? c.req.header('X-Demo-User')?.toLowerCase();
-  let u = epost ? await db.prepare('SELECT * FROM Brukere WHERE epost=?').bind(epost).first<Bruker>() : null;
-  if (!u && access) {
-    await db.prepare('INSERT INTO Brukere (epost, navn) VALUES (?,?)').bind(access, access.split('@')[0]).run();
-    u = await db.prepare('SELECT * FROM Brukere WHERE epost=?').bind(access).first<Bruker>();
-  }
-  u ??= await db.prepare('SELECT * FROM Brukere ORDER BY id LIMIT 1').first<Bruker>();
-  return { bruker: u!, demo: !access };
-}
-
 app.get('/api/meg', async (c) => {
   const { bruker, demo } = await hentBruker(c);
   const brukere = demo ? (await c.env.DB.prepare('SELECT * FROM Brukere ORDER BY id').all<Bruker>()).results : [];
@@ -400,6 +401,9 @@ app.get('/api/ais/spor/:mmsi', async (c) => {
     return c.json({ error: (e as Error).message }, 502);
   }
 });
+
+kaibokRoutes(app);
+kalenderRoutes(app);
 
 // ---------- Demo ----------
 

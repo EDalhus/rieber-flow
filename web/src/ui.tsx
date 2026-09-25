@@ -1,3 +1,4 @@
+import { useEffect, type ReactNode } from 'react';
 import { textOn, type Linje } from './api';
 
 export function SaltBadge({ salttype, farge }: { salttype: string; farge: string }) {
@@ -48,4 +49,36 @@ export function Linjer({ linjer, kompakt }: { linjer?: Linje[]; kompakt?: boolea
       ))}
     </ul>
   );
+}
+
+/** Enkel modal: lukkes med Esc eller klikk utenfor. */
+export function Modal({ tittel, onLukk, children, bred }: { tittel: string; onLukk: () => void; children: ReactNode; bred?: boolean }) {
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => e.key === 'Escape' && onLukk();
+    addEventListener('keydown', f);
+    return () => removeEventListener('keydown', f);
+  }, [onLukk]);
+  return (
+    <div className="modal-bg" onMouseDown={(e) => e.target === e.currentTarget && onLukk()}>
+      <div className={`modal ${bred ? 'bred' : ''}`} role="dialog" aria-label={tittel}>
+        <div className="modal-head"><h2>{tittel}</h2><button className="icon" onClick={onLukk} aria-label="Lukk">✕</button></div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Krymper et bilde i nettleseren (maks 1600 px, JPEG) så det passer i databasen. */
+export async function krympBilde(fil: File): Promise<File> {
+  const bmp = await createImageBitmap(fil);
+  for (const [maks, kvalitet] of [[1600, 0.8], [1280, 0.65], [1000, 0.55]] as const) {
+    const skala = Math.min(1, maks / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * skala);
+    c.height = Math.round(bmp.height * skala);
+    c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, 'image/jpeg', kvalitet));
+    if (blob && blob.size <= 1_100_000) return new File([blob], fil.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  }
+  throw new Error(`${fil.name} er for stort selv etter komprimering`);
 }

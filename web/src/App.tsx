@@ -4,8 +4,10 @@ import { Dashboard } from './pages/Dashboard';
 import { Anlop, Lasteplan } from './pages/Anlop';
 import { SoKo } from './pages/SoKo';
 import { Flate } from './pages/Flate';
+import { Kaibok } from './pages/Kaibok';
+import { Kalender } from './pages/Kalender';
 import { Search } from './Search';
-import { IconDashboard, IconList, IconMap, IconShip, Logo } from './icons';
+import { IconDashboard, IconBook, IconCalendar, IconList, IconMap, IconShip, Logo } from './icons';
 
 function useHash() {
   const [h, setH] = useState(location.hash.slice(1) || '/');
@@ -22,6 +24,8 @@ const NAV = [
   ['/anlop', 'Båtanløp', <IconShip />],
   ['/so-ko', 'SO-kø', <IconList />],
   ['/flate', 'Flåte & kart', <IconMap />],
+  ['/kaibok', 'Kaibok', <IconBook />],
+  ['/kalender', 'Kalender', <IconCalendar />],
 ] as const;
 
 function Bruker() {
@@ -57,12 +61,14 @@ export function App() {
   else if (path.startsWith('/anlop')) page = <Anlop />;
   else if (path.startsWith('/so-ko')) page = <SoKo />;
   else if (path.startsWith('/flate')) page = <Flate />;
+  else if (path.startsWith('/kaibok')) page = <Kaibok />;
+  else if (path.startsWith('/kalender')) page = <Kalender />;
   else page = <Dashboard />;
 
   return (
     <div className="shell">
       <aside className="sidebar">
-        <a href="#/" className="brand"><Logo /> Rieber Flow</a>
+        <a href="#/" className="brand"><Logo /> Flow</a>
         <div className="nav-label">MENY</div>
         <nav>
           {NAV.map(([to, label, icon]) => (
@@ -73,7 +79,7 @@ export function App() {
         </nav>
         <div className="promo">
           <b>Sjåførappen</b>
-          <p>Hjullasterne følger lasteplanen live. Endringer her vises i appen innen sekunder.</p>
+          <p>Hold deg oppdatert på lasteplanen</p>
           <button
             onClick={async () => {
               if (confirm('Nullstill all demodata?')) {

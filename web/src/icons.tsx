@@ -24,3 +24,9 @@ export const Logo = () => (
 export const IconMap = () => (
   <svg {...P}><path d="M9 4L3 6.5v13L9 17l6 3 6-2.5v-13L15 7 9 4z" /><path d="M9 4v13M15 7v13" /></svg>
 );
+export const IconBook = () => (
+  <svg {...P}><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z" /><path d="M5 17a3 3 0 013-3h11M9 8h6" /></svg>
+);
+export const IconCalendar = () => (
+  <svg {...P}><rect x="3.5" y="5" width="17" height="15.5" rx="3" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>
+);

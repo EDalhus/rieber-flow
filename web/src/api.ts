@@ -93,3 +93,26 @@ export type Posisjon = {
 };
 export type FlateFartoy = { mmsi: string; navn: string; posisjon: Posisjon | null };
 export type FlateSvar = { kilde: 'ais' | 'simulert'; feil: string | null; fartoy: FlateFartoy[] };
+
+export type Vurdering = 'Bra' | 'Merknad' | 'Avvik' | 'Ikke vurdert';
+export type Foering = {
+  id: number; batanlop_id: number | null; baatnavn: string; mmsi: string | null; kai_dato: string;
+  operasjon: 'Lasting' | 'Lossing'; varetype: 'Bulk' | 'Pallevarer' | 'Begge'; tonn: number | null;
+  vurdering: Vurdering; tilbakemelding: string; antall_bilder?: number; antall_anlop?: number;
+  opprettet_av_navn?: string | null; bilder?: { id: number; filnavn: string; storrelse: number }[];
+};
+export type KaibokBaat = { baatnavn: string; antall: number; siste: string; forste: string; avvik: number };
+
+export const KATEGORIER = ['Lege/tannlege', 'Verksted/bil', 'Skole/barn', 'Ferie', 'Sykdom', 'Annet', 'Ikke overtid'] as const;
+export type Fravaer = {
+  id: number; bruker_id: number; navn: string; rolle: string; kategori: (typeof KATEGORIER)[number]; tittel: string;
+  dato_fra: string; dato_til: string; tid_fra: string | null; tid_til: string | null; ikke_overtid: number;
+};
+export type KalAnlop = { type: 'anlop' | 'kaibok'; id: number; navn: string; dato: string; tid: string | null; status: string; href: string; varetype?: string; vurdering?: string };
+export type KalenderSvar = { anlop: KalAnlop[]; fravaer: Fravaer[]; antallAnsatte: number; meg: number };
+
+export const pad2 = (n: number) => String(n).padStart(2, '0');
+/** Lokal dato som YYYY-MM-DD. */
+export const dagStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+export const fmtDag = (iso: string, lang: 'kort' | 'lang' = 'kort') =>
+  new Date(iso + 'T12:00:00').toLocaleDateString('nb-NO', lang === 'kort' ? { day: 'numeric', month: 'short', year: 'numeric' } : { weekday: 'long', day: 'numeric', month: 'long' });

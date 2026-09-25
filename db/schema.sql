@@ -2,6 +2,9 @@
 -- Kjøres på nytt ved reset (DROP først), så seed er idempotent.
 
 
+DROP TABLE IF EXISTS KaibokBilder;
+DROP TABLE IF EXISTS Kaibok;
+DROP TABLE IF EXISTS Fravaer;
 DROP TABLE IF EXISTS Flate;
 DROP TABLE IF EXISTS DashboardLayout;
 DROP TABLE IF EXISTS Brukere;
@@ -96,3 +99,50 @@ CREATE TABLE Flate (
   lagt_til    TEXT NOT NULL,
   PRIMARY KEY (bruker_id, mmsi)
 );
+
+-- Kaibok: én føring pr. båtanløp ved kai (kan også føres manuelt for eldre anløp).
+CREATE TABLE Kaibok (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  batanlop_id    INTEGER REFERENCES Batanlop(id) ON DELETE SET NULL,
+  baatnavn       TEXT NOT NULL,
+  mmsi           TEXT,
+  kai_dato       TEXT NOT NULL,               -- YYYY-MM-DD
+  operasjon      TEXT NOT NULL CHECK (operasjon IN ('Lasting', 'Lossing')),
+  varetype       TEXT NOT NULL CHECK (varetype IN ('Bulk', 'Pallevarer', 'Begge')),
+  tonn           REAL,
+  vurdering      TEXT NOT NULL DEFAULT 'Ikke vurdert' CHECK (vurdering IN ('Bra', 'Merknad', 'Avvik', 'Ikke vurdert')),
+  tilbakemelding TEXT NOT NULL DEFAULT '',
+  opprettet_av   INTEGER REFERENCES Brukere(id) ON DELETE SET NULL,
+  opprettet      TEXT NOT NULL
+);
+CREATE INDEX idx_kaibok_dato ON Kaibok(kai_dato);
+CREATE INDEX idx_kaibok_baat ON Kaibok(baatnavn);
+CREATE UNIQUE INDEX idx_kaibok_anlop ON Kaibok(batanlop_id) WHERE batanlop_id IS NOT NULL;
+
+-- Bilder som dokumenterer kvalitet. MVP: lagres som base64 i D1 (bildene krympes i nettleseren).
+-- Ved videre bruk bør de flyttes til R2.
+CREATE TABLE KaibokBilder (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  foering_id   INTEGER NOT NULL REFERENCES Kaibok(id) ON DELETE CASCADE,
+  filnavn      TEXT NOT NULL,
+  content_type TEXT NOT NULL,
+  storrelse    INTEGER NOT NULL,
+  data         TEXT NOT NULL,
+  opplastet    TEXT NOT NULL
+);
+CREATE INDEX idx_bilder_foering ON KaibokBilder(foering_id);
+
+-- Fravær og avtaler i kalenderen. Tid = NULL betyr hel dag. Datoene er inklusive.
+CREATE TABLE Fravaer (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  bruker_id     INTEGER NOT NULL REFERENCES Brukere(id) ON DELETE CASCADE,
+  kategori      TEXT NOT NULL CHECK (kategori IN ('Lege/tannlege', 'Verksted/bil', 'Skole/barn', 'Ferie', 'Sykdom', 'Annet', 'Ikke overtid')),
+  tittel        TEXT NOT NULL DEFAULT '',
+  dato_fra      TEXT NOT NULL,
+  dato_til      TEXT NOT NULL,
+  tid_fra       TEXT,                         -- HH:MM
+  tid_til       TEXT,
+  ikke_overtid  INTEGER NOT NULL DEFAULT 0,
+  opprettet     TEXT NOT NULL
+);
+CREATE INDEX idx_fravaer_dato ON Fravaer(dato_fra, dato_til);
