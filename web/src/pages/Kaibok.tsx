@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, dagStr, fmtDag, fmtTonn, mengdeTekst, TYPE_NAVN, useApi, type Bat, type Foering, type KaibokBaat, type Produkt, type Vurdering } from '../api';
 import { IconPlus } from '../icons';
 import { Modal, krympBilde } from '../ui';
+import { gyldigImo } from '../imo';
 
 const OPERASJONER = ['Lasting', 'Lossing'] as const;
 const VURDERINGER: Vurdering[] = ['Bra', 'Merknad', 'Avvik', 'Ikke vurdert'];
@@ -95,7 +96,7 @@ export function Kaibok() {
               <tr key={f.id} className="klikk" onClick={() => setModal({ id: f.id })}>
                 <td>{fmtDag(f.kai_dato)}</td>
                 <td>
-                  <b>{f.baatnavn}</b>{' '}
+                  <b>{f.baatnavn}</b>{f.imo && <small className="muted"> IMO {f.imo}</small>}{' '}
                   {(f.antall_anlop ?? 0) > 1 && (
                     <button className="chip liten" title="Vis alle anløp for denne båten" onClick={(e) => { e.stopPropagation(); sett('baat', f.baatnavn); }}>
                       {f.antall_anlop} anløp
@@ -125,12 +126,12 @@ export function Kaibok() {
 
 // ---------- Opprett / vis / rediger én føring ----------
 
-type Skjema = { baatnavn: string; kai_dato: string; operasjon: string; vurdering: Vurdering; tilbakemelding: string; batanlop_id: number | null; mmsi: string | null };
+type Skjema = { baatnavn: string; imo: string; kai_dato: string; operasjon: string; vurdering: Vurdering; tilbakemelding: string; batanlop_id: number | null; mmsi: string | null };
 type LinjeState = { produkt_id: number | ''; antall: string };
 
 function FoeringModal({ id, onLukk }: { id: number | null; onLukk: () => void }) {
   const ny = id === null;
-  const [s, setS] = useState<Skjema>({ baatnavn: '', kai_dato: dagStr(new Date()), operasjon: 'Lossing', vurdering: 'Ikke vurdert', tilbakemelding: '', batanlop_id: null, mmsi: null });
+  const [s, setS] = useState<Skjema>({ baatnavn: '', imo: '', kai_dato: dagStr(new Date()), operasjon: 'Lossing', vurdering: 'Ikke vurdert', tilbakemelding: '', batanlop_id: null, mmsi: null });
   const [linjer, setLinjer] = useState<LinjeState[]>([{ produkt_id: '', antall: '' }]);
   const [info, setInfo] = useState<Foering | null>(null);
   const [bilder, setBilder] = useState<NonNullable<Foering['bilder']>>([]);
@@ -147,7 +148,7 @@ function FoeringModal({ id, onLukk }: { id: number | null; onLukk: () => void })
     const f = await api<Foering>(`/kaibok/${id}`);
     setInfo(f);
     setBilder(f.bilder ?? []);
-    setS({ baatnavn: f.baatnavn, kai_dato: f.kai_dato, operasjon: f.operasjon, vurdering: f.vurdering, tilbakemelding: f.tilbakemelding, batanlop_id: f.batanlop_id, mmsi: f.mmsi });
+    setS({ baatnavn: f.baatnavn, imo: f.imo ?? '', kai_dato: f.kai_dato, operasjon: f.operasjon, vurdering: f.vurdering, tilbakemelding: f.tilbakemelding, batanlop_id: f.batanlop_id, mmsi: f.mmsi });
     setLinjer(f.linjer?.length ? f.linjer.map((l) => ({ produkt_id: l.produkt_id, antall: String(l.antall) })) : [{ produkt_id: '', antall: '' }]);
   }, [id]);
   useEffect(() => { last().catch((e) => setFeil((e as Error).message)); }, [last]);
@@ -212,6 +213,10 @@ function FoeringModal({ id, onLukk }: { id: number | null; onLukk: () => void })
         <label>Båtnavn
           <input list="baatnavn" required value={s.baatnavn} onChange={(e) => sett('baatnavn', e.target.value)} placeholder="F.eks. MV Nordic Star" />
           <datalist id="baatnavn">{navnForslag.map((n) => <option key={n} value={n} />)}</datalist>
+        </label>
+        <label>IMO-nummer (valgfritt)
+          <input value={s.imo} inputMode="numeric" maxLength={7} onChange={(e) => sett('imo', e.target.value.replace(/\D/g, ''))} placeholder="7 siffer – identifiserer båten selv uten AIS" />
+          {s.imo.length > 0 && !gyldigImo(s.imo) && <small className="haster">{s.imo.length === 7 ? 'Ugyldig kontrollsiffer' : 'IMO har 7 siffer'}</small>}
         </label>
         <label>Dato til kai<input type="date" value={s.kai_dato} onChange={(e) => sett('kai_dato', e.target.value)} /></label>
         <div className="vurd-valg">
@@ -296,7 +301,7 @@ function FoeringModal({ id, onLukk }: { id: number | null; onLukk: () => void })
         {!ny && <button className="btn ghost danger" onClick={slett}>Slett</button>}
         <span style={{ flex: 1 }} />
         <button className="btn ghost" onClick={onLukk}>Avbryt</button>
-        <button className="btn primary" disabled={lagrer || !s.baatnavn.trim() || (gyldige.length === 0 && !eldreUtenProdukter)} onClick={lagre}>{lagrer ? 'Lagrer…' : 'Lagre'}</button>
+        <button className="btn primary" disabled={lagrer || !s.baatnavn.trim() || (s.imo.length > 0 && !gyldigImo(s.imo)) || (gyldige.length === 0 && !eldreUtenProdukter)} onClick={lagre}>{lagrer ? 'Lagrer…' : 'Lagre'}</button>
       </div>
     </Modal>
   );

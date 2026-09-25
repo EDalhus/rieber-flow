@@ -56,6 +56,20 @@ async function oppdaterOgRydd(db: D1Database) {
     db.prepare('CREATE INDEX IF NOT EXISTS idx_kaibok_linje ON KaibokLinjer(foering_id)'),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_kaibok_linje_produkt ON KaibokLinjer(produkt_id)'),
   ]);
+  if (!(await db.prepare("SELECT 1 AS x FROM pragma_table_info('Kaibok') WHERE name='imo'").first())) {
+    await db.prepare('ALTER TABLE Kaibok ADD COLUMN imo TEXT').run();
+  }
+  // Flåte: bygges om så en båt kan ha bare IMO (uten MMSI ennå)
+  if (!(await db.prepare("SELECT 1 AS x FROM pragma_table_info('Flate') WHERE name='id'").first())) {
+    await db.batch([
+      db.prepare('ALTER TABLE Flate RENAME TO Flate_gammel'),
+      db.prepare("CREATE TABLE Flate (id INTEGER PRIMARY KEY AUTOINCREMENT, bruker_id INTEGER NOT NULL REFERENCES Brukere(id) ON DELETE CASCADE, mmsi TEXT, imo TEXT, navn TEXT NOT NULL, lagt_til TEXT NOT NULL, CHECK (mmsi IS NOT NULL OR imo IS NOT NULL))"),
+      db.prepare('CREATE UNIQUE INDEX idx_flate_mmsi ON Flate(bruker_id, mmsi) WHERE mmsi IS NOT NULL'),
+      db.prepare('CREATE UNIQUE INDEX idx_flate_imo ON Flate(bruker_id, imo) WHERE imo IS NOT NULL'),
+      db.prepare('INSERT INTO Flate (bruker_id, mmsi, navn, lagt_til) SELECT bruker_id, mmsi, navn, lagt_til FROM Flate_gammel'),
+      db.prepare('DROP TABLE Flate_gammel'),
+    ]);
+  }
   if (await db.prepare("SELECT 1 AS x FROM Oppsett WHERE nokkel='demo-fjernet'").first()) return;
   const soDemo = ['SO-10041', 'SO-10042', 'SO-10043', 'SO-10044', 'SO-10051', 'SO-10052', 'SO-10061', 'SO-10071', 'SO-10072', 'SO-10073', 'SO-10074', 'SO-10075'];
   const brukerDemo = ['kontor@rieber.demo', 'ledelse@rieber.demo', 'ola@rieber.demo', 'tone@rieber.demo', 'per@rieber.demo'];

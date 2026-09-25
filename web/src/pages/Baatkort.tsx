@@ -31,7 +31,7 @@ function Verdi({ v, type }: { v: string; type: Kontakt }) {
 
 /** Båtkort: bilde, live AIS-data, sjøvei til terminalen og felles kontaktinfo som teamet selv vedlikeholder. */
 export function Baatkort({ f, sjo, onTilbake, gjest, onLeggTil }: { f: FlateFartoy; sjo: Sjovei | null; onTilbake: () => void; gjest?: boolean; onLeggTil?: () => void }) {
-  const { data, reload } = useApi<{ info: FartoyInfo | null; bilder: FartoyBilde[] }>(`/fartoy/${f.mmsi}`, 0);
+  const { data, reload } = useApi<{ info: FartoyInfo | null; bilder: FartoyBilde[] }>(`/fartoy/${f.noekkel}`, 0);
   const [redigerer, setRedigerer] = useState(false);
   const [skjema, setSkjema] = useState<FartoyInfo>(TOM);
   const [feil, setFeil] = useState<string | null>(null);
@@ -39,9 +39,9 @@ export function Baatkort({ f, sjo, onTilbake, gjest, onLeggTil }: { f: FlateFart
   const [aisApen, setAisApen] = useState(true);
   const filRef = useRef<HTMLInputElement>(null);
   const p = f.posisjon;
-  const land = flagg(p?.flagg) ?? flagg(landFraMmsi(f.mmsi));
+  const land = flagg(p?.flagg) ?? (f.mmsi ? flagg(landFraMmsi(f.mmsi)) : null);
 
-  useEffect(() => { setRedigerer(false); setFeil(null); }, [f.mmsi]);
+  useEffect(() => { setRedigerer(false); setFeil(null); }, [f.noekkel]);
   const info = data?.info ?? TOM;
   const bilder = data?.bilder ?? [];
   const hoved = bilder.find((b) => b.hoved) ?? bilder[0];
@@ -49,7 +49,7 @@ export function Baatkort({ f, sjo, onTilbake, gjest, onLeggTil }: { f: FlateFart
   const eta = sjo && p ? etaTerminal(sjo.nm, p.sog) : null;
 
   async function lagre() {
-    try { await api(`/fartoy/${f.mmsi}`, 'PUT', skjema); setRedigerer(false); setFeil(null); reload(); }
+    try { await api(`/fartoy/${f.noekkel}`, 'PUT', skjema); setRedigerer(false); setFeil(null); reload(); }
     catch (e) { setFeil((e as Error).message); }
   }
   async function lastOpp(filer: File[]) {
@@ -57,7 +57,7 @@ export function Baatkort({ f, sjo, onTilbake, gjest, onLeggTil }: { f: FlateFart
     try {
       const fd = new FormData();
       for (const fil of filer) fd.append('bilde', await krympBilde(fil));
-      const r = await fetch(`/api/fartoy/${f.mmsi}/bilder`, { method: 'POST', body: fd });
+      const r = await fetch(`/api/fartoy/${f.noekkel}/bilder`, { method: 'POST', body: fd });
       if (!r.ok) throw new Error(((await r.json().catch(() => null)) as { error?: string } | null)?.error ?? 'Opplasting feilet');
       reload();
     } catch (e) { setFeil((e as Error).message); }
@@ -111,7 +111,7 @@ export function Baatkort({ f, sjo, onTilbake, gjest, onLeggTil }: { f: FlateFart
       )}
 
       <Trio celler={[['FART', kn(p?.sog)], ['STEVNING', grader(p?.stevning)], ['KURS', grader(p?.cog, 1)]]} />
-      <Trio celler={[['MMSI', f.mmsi], ['IMO', p?.imo ?? '–'], ['KALLESIGNAL', p?.kallesignal ?? '–']]} />
+      <Trio celler={[['MMSI', f.mmsi ?? '–'], ['IMO', p?.imo ?? f.imo ?? '–'], ['KALLESIGNAL', p?.kallesignal ?? '–']]} />
 
       <div className="bk-terminal">
         <b>Til terminalen (Flatholmen)</b>
@@ -121,7 +121,7 @@ export function Baatkort({ f, sjo, onTilbake, gjest, onLeggTil }: { f: FlateFart
             <span className="muted">Luftlinje {fmtNm(sjo.luftlinje)} · estimert sjøvei langs kysten</span>
             {eta ? <span className="bk-eta">≈ {eta.varighet} ved {kn(p?.sog)} · ankomst {eta.klokka}</span> : <span className="muted">Ligger stille – ingen ETA</span>}
           </>
-        ) : <span className="muted">{p ? 'Utenfor kartutsnittet for sjøvei-beregning' : 'Ingen posisjon'}</span>}
+        ) : <span className="muted">{p ? 'Utenfor kartutsnittet for sjøvei-beregning' : f.venter ? 'Venter på AIS-signal – båten vises på kartet og får sjøvei/ETA så snart den kommer innenfor AIS-dekning.' : 'Ingen posisjon'}</span>}
       </div>
 
       {p && (

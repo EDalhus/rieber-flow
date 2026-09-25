@@ -3,6 +3,7 @@ import L from 'leaflet';
 import { kartverketLag, skipIkon, terminalMarker } from '../kart';
 import { api, useApi, type Bat, type FlateFartoy, type FlateSvar, type Posisjon } from '../api';
 import { Baatkort } from './Baatkort';
+import { gyldigImo } from '../imo';
 import { TERMINAL, fmtNm, fmtVarighet, lastSjovei, punktFra, sjovei, type Sjofelt, type Sjovei } from '../sjovei';
 
 const kn = (v: number | null) => (v == null ? '–' : `${v.toFixed(1).replace('.', ',')} kn`);
@@ -38,17 +39,17 @@ function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; va
     for (const f of fartoy) {
       const p = f.posisjon;
       if (!p) continue;
-      na.add(f.mmsi);
+      na.add(f.noekkel);
       punkter.push([p.lat, p.lon]);
-      const ikon = skipIkon(p.heading ?? p.cog ?? 0, f.mmsi === valgt, ferdsel(f), f.gjest);
-      let mk = markorer.current.get(f.mmsi);
+      const ikon = skipIkon(p.heading ?? p.cog ?? 0, f.noekkel === valgt, ferdsel(f), f.gjest);
+      let mk = markorer.current.get(f.noekkel);
       if (!mk) {
         mk = L.marker([p.lat, p.lon], { icon: ikon, riseOnHover: true }).addTo(m);
         mk.bindTooltip(merke(f), { permanent: true, direction: 'right', offset: [12, 0], className: 'ship-label' });
-        mk.on('click', () => onVelg(f.mmsi));
-        markorer.current.set(f.mmsi, mk);
+        mk.on('click', () => onVelg(f.noekkel));
+        markorer.current.set(f.noekkel, mk);
       } else { mk.setLatLng([p.lat, p.lon]); mk.setIcon(ikon); mk.setTooltipContent(merke(f)); }
-      mk.setZIndexOffset(f.mmsi === valgt ? 1000 : 0);
+      mk.setZIndexOffset(f.noekkel === valgt ? 1000 : 0);
     }
     for (const [mmsi, mk] of markorer.current) if (!na.has(mmsi)) { mk.remove(); markorer.current.delete(mmsi); }
     if (!passet.current && punkter.length) { m.fitBounds(L.latLngBounds(punkter).pad(0.4), { maxZoom: 7 }); passet.current = true; }
@@ -61,7 +62,7 @@ function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; va
   }, [spor]);
 
   // Ringer rundt valgt båt: hvor langt den kommer på 15 min, 30 min, 1 t og 2 t ved gjeldende fart
-  const valgtPos = fartoy.find((f) => f.mmsi === valgt)?.posisjon ?? null;
+  const valgtPos = fartoy.find((f) => f.noekkel === valgt)?.posisjon ?? null;
   useEffect(() => {
     const g = ringer.current!;
     g.clearLayers();
@@ -108,6 +109,8 @@ export function Flate() {
   const [gjestFeil, setGjestFeil] = useState<string | null>(null);
   const [aisParam, setAisParam] = useState<string | null>(() => new URLSearchParams(location.hash.split('?')[1] ?? '').get('ais'));
   const [sorter, setSorter] = useState<'standard' | 'naermest'>('standard');
+  const [imoFelt, setImoFelt] = useState(() => new URLSearchParams(location.hash.split('?')[1] ?? '').get('imo') ?? '');
+  const [imoNavn, setImoNavn] = useState('');
 
   useEffect(() => { lastSjovei().then(setFelt).catch(() => {}); }, []);
 
@@ -121,7 +124,7 @@ export function Flate() {
         if (avbrutt) return;
         if (!r.posisjon) { setGjestFeil('Fant ingen nylig AIS-posisjon for denne båten (den kan ligge utenfor dekningsområdet eller ha slått av AIS).'); setGjest((g) => g); return; }
         setGjestFeil(null);
-        setGjest({ mmsi: aisParam, navn: r.posisjon.navn ?? `MMSI ${aisParam}`, posisjon: r.posisjon, gjest: true });
+        setGjest({ mmsi: aisParam, noekkel: aisParam, navn: r.posisjon.navn ?? `MMSI ${aisParam}`, posisjon: r.posisjon, gjest: true });
       } catch (e) { if (!avbrutt) setGjestFeil((e as Error).message); }
     };
     hent();
@@ -131,7 +134,7 @@ export function Flate() {
   // Sjøvei til terminalen for hver båt i flåten (forhåndsberegnet felt – ingen serverkall)
   const sjoMap = useMemo(() => {
     const m = new Map<string, Sjovei | null>();
-    if (felt && data) for (const f of [...data.fartoy, ...(gjest ? [gjest] : [])]) if (f.posisjon) m.set(f.mmsi, sjovei(felt, f.posisjon.lat, f.posisjon.lon));
+    if (felt && data) for (const f of [...data.fartoy, ...(gjest ? [gjest] : [])]) if (f.posisjon) m.set(f.noekkel, sjovei(felt, f.posisjon.lat, f.posisjon.lon));
     return m;
   }, [felt, data, gjest]);
 
@@ -151,18 +154,24 @@ export function Flate() {
   }, [q]);
 
   if (!data) return <p className="muted">Laster…</p>;
-  const iFlate = new Set(data.fartoy.map((f) => f.mmsi));
+  const iFlate = new Set(data.fartoy.flatMap((f) => [f.mmsi, f.imo, f.noekkel].filter(Boolean) as string[]));
   const leggTil = async (mmsi: string, navn: string) => { await api('/flate', 'POST', { mmsi, navn }); setQ(''); reload(); };
-  const fjern = async (mmsi: string) => { await api(`/flate/${mmsi}`, 'DELETE'); if (valgt === mmsi) setValgt(null); reload(); };
+  const fjern = async (noekkel: string) => { await api(`/flate/${noekkel}`, 'DELETE'); if (valgt === noekkel) setValgt(null); reload(); };
+  const leggTilImo = async () => {
+    try {
+      await api('/flate', 'POST', { imo: imoFelt, navn: imoNavn });
+      setImoFelt(''); setImoNavn(''); setFeil(null); reload();
+    } catch (e) { setFeil((e as Error).message); }
+  };
   const fraAnlop = (bater ?? []).filter((b) => b.mmsi && !iFlate.has(b.mmsi));
   // En søkt båt vises som «gjest» på kartet til den legges i flåten eller lukkes
-  const alle = gjest && !iFlate.has(gjest.mmsi) ? [...data.fartoy, gjest] : data.fartoy;
-  const valgtF = alle.find((f) => f.mmsi === valgt);
+  const alle = gjest && !iFlate.has(gjest.noekkel) ? [...data.fartoy, gjest] : data.fartoy;
+  const valgtF = alle.find((f) => f.noekkel === valgt);
   const lukk = () => { setValgt(null); setGjest(null); setAisParam(null); setGjestFeil(null); };
-  const leggGjestTilFlate = async () => { if (!gjest) return; await leggTil(gjest.mmsi, gjest.navn); setGjest(null); setAisParam(null); };
+  const leggGjestTilFlate = async () => { if (!gjest) return; await leggTil(gjest.mmsi!, gjest.navn); setGjest(null); setAisParam(null); };
   const rute = valgt ? sjoMap.get(valgt)?.sti ?? [] : [];
   const sortert = sorter === 'naermest'
-    ? [...data.fartoy].sort((a, b) => (sjoMap.get(a.mmsi)?.nm ?? Infinity) - (sjoMap.get(b.mmsi)?.nm ?? Infinity))
+    ? [...data.fartoy].sort((a, b) => (sjoMap.get(a.noekkel)?.nm ?? Infinity) - (sjoMap.get(b.noekkel)?.nm ?? Infinity))
     : data.fartoy;
 
   return (
@@ -193,26 +202,26 @@ export function Flate() {
         <div className="kart-wrap"><Kart fartoy={alle} valgt={valgt} spor={spor} rute={rute} onVelg={setValgt} /></div>
 
         <aside className="panel flate-panel">
-         {valgtF ? <Baatkort f={valgtF} sjo={sjoMap.get(valgtF.mmsi) ?? null} onTilbake={lukk} gjest={!!valgtF.gjest} onLeggTil={leggGjestTilFlate} /> : (<>
+         {valgtF ? <Baatkort f={valgtF} sjo={sjoMap.get(valgtF.noekkel) ?? null} onTilbake={lukk} gjest={!!valgtF.gjest} onLeggTil={leggGjestTilFlate} /> : (<>
           <div className="row"><h3>Min flåte <span className="muted">· {data.fartoy.length} båter</span></h3>
             <select className="sorter" value={sorter} onChange={(e) => setSorter(e.target.value as 'standard' | 'naermest')}>
               <option value="standard">Rekkefølge</option><option value="naermest">Nærmest terminalen</option>
             </select></div>
           <ul className="list flate-liste">
             {sortert.map((f) => (
-              <li key={f.mmsi} className={f.mmsi === valgt ? 'valgt' : ''}>
-                <button className="flate-rad" onClick={() => setValgt(f.mmsi)}>
-                  <span className={`dot ${f.posisjon ? (ferdsel(f) ? 'd-ankommet' : 'd-lasting') : ''}`} />
+              <li key={f.noekkel} className={f.noekkel === valgt ? 'valgt' : ''}>
+                <button className="flate-rad" onClick={() => setValgt(f.noekkel)}>
+                  <span className={`dot ${f.posisjon ? (ferdsel(f) ? 'd-ankommet' : 'd-lasting') : f.venter ? 'd-venter' : ''}`} />
                   <span className="li-main">
                     <b>{f.navn}</b>
                     <small>
                       {f.posisjon
-                        ? `${kn(f.posisjon.sog)}${sjoMap.get(f.mmsi) ? ` · ${fmtNm(sjoMap.get(f.mmsi)!.nm)} til terminalen` : ''}${f.posisjon.destinasjon ? ` · → ${f.posisjon.destinasjon}` : ''}`
-                        : 'Ingen AIS-posisjon'}
+                        ? `${kn(f.posisjon.sog)}${sjoMap.get(f.noekkel) ? ` · ${fmtNm(sjoMap.get(f.noekkel)!.nm)} til terminalen` : ''}${f.posisjon.destinasjon ? ` · → ${f.posisjon.destinasjon}` : ''}`
+                        : f.venter ? `IMO ${f.imo} · venter på AIS-signal` : 'Ingen AIS-posisjon'}
                     </small>
                   </span>
                 </button>
-                <button className="icon" title="Fjern fra flåten" onClick={() => fjern(f.mmsi)}>✕</button>
+                <button className="icon" title="Fjern fra flåten" onClick={() => fjern(f.noekkel)}>✕</button>
               </li>
             ))}
             {data.fartoy.length === 0 && <li className="muted">Flåten er tom – legg til båter under.</li>}
@@ -229,6 +238,15 @@ export function Flate() {
             ))}
             {q.trim().length >= 2 && treff.length === 0 && !feil && <li className="muted">Ingen treff</li>}
           </ul>
+          <div className="imo-boks">
+            <div className="muted fra-anlop">Ikke i AIS akkurat nå? Legg til med IMO-nummer – båten vises på kartet når den kommer innenfor AIS-dekning.</div>
+            <div className="imo-rad">
+              <input value={imoFelt} onChange={(e) => setImoFelt(e.target.value.replace(/\D/g, '').slice(0, 7))} placeholder="IMO (7 siffer)" inputMode="numeric" />
+              <input value={imoNavn} onChange={(e) => setImoNavn(e.target.value)} placeholder="Skipsnavn (valgfritt)" />
+              <button className="btn ghost sm" disabled={!gyldigImo(imoFelt)} onClick={leggTilImo} title={imoFelt.length === 7 && !gyldigImo(imoFelt) ? 'Ugyldig kontrollsiffer' : ''}>+ Legg til</button>
+            </div>
+            {imoFelt.length === 7 && !gyldigImo(imoFelt) && <div className="haster" style={{ fontSize: 12 }}>Ugyldig IMO-nummer (kontrollsiffer stemmer ikke)</div>}
+          </div>
           {fraAnlop.length > 0 && (
             <>
               <div className="muted fra-anlop">Fra båtanløp</div>

@@ -2,6 +2,7 @@ import type { Hono } from 'hono';
 import type { Env } from './types';
 import { hentBruker } from './bruker';
 import { sokFartoy } from './ais';
+import { gyldigImo } from './imo';
 
 export type SokTreff = { kategori: string; id: string; tittel: string; sub: string; href: string };
 
@@ -29,7 +30,7 @@ export function sokRoutes(app: Hono<Env>) {
         `SELECT id, baatnavn, kai_dato, operasjon, vurdering, tilbakemelding FROM Kaibok
          WHERE baatnavn LIKE ?1 ESCAPE '\\' OR tilbakemelding LIKE ?1 ESCAPE '\\' ORDER BY kai_dato DESC LIMIT 5`,
       ).bind(p).all<any>(),
-      db.prepare(`SELECT mmsi, navn FROM Flate WHERE bruker_id = ?2 AND (navn LIKE ?1 ESCAPE '\\' OR mmsi LIKE ?1 ESCAPE '\\') LIMIT 5`).bind(p, bruker.id).all<any>(),
+      db.prepare(`SELECT mmsi, imo, navn FROM Flate WHERE bruker_id = ?2 AND (navn LIKE ?1 ESCAPE '\\' OR mmsi LIKE ?1 ESCAPE '\\' OR imo LIKE ?1 ESCAPE '\\') LIMIT 5`).bind(p, bruker.id).all<any>(),
       db.prepare(
         `SELECT i.mmsi, i.rederi, i.kaptein_navn, i.kaptein_tlf, i.chief_navn, i.agent_navn, i.epost,
                 COALESCE((SELECT navn FROM Flate WHERE mmsi = i.mmsi LIMIT 1), 'MMSI ' || i.mmsi) AS navn
@@ -43,12 +44,12 @@ export function sokRoutes(app: Hono<Env>) {
          ORDER BY f.dato_fra LIMIT 6`,
       ).bind(p).all<any>(),
       db.prepare(`SELECT id, navn, rolle, epost FROM Brukere WHERE navn LIKE ?1 ESCAPE '\\' OR rolle LIKE ?1 ESCAPE '\\' OR epost LIKE ?1 ESCAPE '\\' LIMIT 4`).bind(p).all<any>(),
-      db.prepare('SELECT mmsi FROM Flate WHERE bruker_id = ?').bind(bruker.id).all<{ mmsi: string }>(),
+      db.prepare('SELECT mmsi, imo FROM Flate WHERE bruker_id = ?').bind(bruker.id).all<{ mmsi: string | null; imo: string | null }>(),
       // Alle fartøy i AIS (Kystverket/Barentswatch) – feil her skal aldri ødelegge resten av søket
       sokFartoy(c.env, q, caches.default).catch(() => []),
       db.prepare(`SELECT id, produktnr, navn, type, beskrivelse FROM Produkter WHERE aktiv = 1 AND (navn LIKE ?1 ESCAPE '\\' OR produktnr LIKE ?1 ESCAPE '\\' OR beskrivelse LIKE ?1 ESCAPE '\\') LIMIT 5`).bind(p).all<any>(),
     ]);
-    const iFlate = new Set(minFlate.results.map((f) => f.mmsi));
+    const iFlate = new Set(minFlate.results.flatMap((f) => [f.mmsi, f.imo].filter(Boolean) as string[]));
 
     const ut: SokTreff[] = [
       ...bat.results.map((b) => ({ kategori: 'Båtanløp', id: `bat${b.id}`, tittel: b.skipsnavn, sub: `ETA ${dato(b.eta)} · ${b.status}`, href: `#/anlop/${b.id}` })),
@@ -60,7 +61,7 @@ export function sokRoutes(app: Hono<Env>) {
         kategori: 'Kaibok', id: `kai${k.id}`, tittel: `${k.baatnavn} · ${dato(k.kai_dato)}`,
         sub: `${k.operasjon} · ${k.vurdering}${k.tilbakemelding ? ` – ${k.tilbakemelding.slice(0, 70)}` : ''}`, href: `#/kaibok?id=${k.id}`,
       })),
-      ...flate.results.map((f) => ({ kategori: 'Flåte & båtinfo', id: `fl${f.mmsi}`, tittel: f.navn, sub: `MMSI ${f.mmsi} · i flåten din`, href: `#/flate?mmsi=${f.mmsi}` })),
+      ...flate.results.map((f) => ({ kategori: 'Flåte & båtinfo', id: `fl${f.mmsi ?? f.imo}`, tittel: f.navn, sub: `${f.mmsi ? `MMSI ${f.mmsi}` : `IMO ${f.imo} · venter på AIS-signal`} · i flåten din`, href: `#/flate?mmsi=${f.mmsi ?? `IMO${f.imo}`}` })),
       ...info.results.filter((i) => !flate.results.some((f) => f.mmsi === i.mmsi)).map((i) => ({
         kategori: 'Flåte & båtinfo', id: `inf${i.mmsi}`, tittel: i.navn,
         sub: [i.rederi, i.kaptein_navn && `Kaptein ${i.kaptein_navn.replace(/^(kaptein|captain)\s+/i, '')}${i.kaptein_tlf ? ` ${i.kaptein_tlf}` : ''}`, i.chief_navn && `Chief ${i.chief_navn.replace(/^chief\s+/i, '')}`, i.agent_navn && `Agent ${i.agent_navn}`].filter(Boolean).join(' · ') || 'Kontaktinfo',
@@ -71,12 +72,17 @@ export function sokRoutes(app: Hono<Env>) {
         sub: `${dato(f.dato_fra)}${f.dato_til !== f.dato_fra ? ` – ${dato(f.dato_til)}` : ''} · ${f.tid_fra ? `${f.tid_fra}–${f.tid_til}` : 'hele dagen'}`, href: `#/kalender?dato=${f.dato_fra}`,
       })),
       ...prod.results.map((x) => ({ kategori: 'Produkter', id: `prod${x.id}`, tittel: `${x.navn} · ${x.produktnr}`, sub: `${x.type}${x.beskrivelse ? ` – ${x.beskrivelse.slice(0, 70)}` : ''}`, href: `#/admin?produkt=${x.id}` })),
-      ...ais.filter((f) => !iFlate.has(f.mmsi)).slice(0, 6).map((f) => ({
+      ...ais.filter((f) => !iFlate.has(f.mmsi) && !(f.imo && iFlate.has(f.imo))).slice(0, 6).map((f) => ({
         kategori: 'Båter i AIS', id: `ais${f.mmsi}`, tittel: f.navn || `MMSI ${f.mmsi}`,
         sub: `${f.imo ? `IMO ${f.imo} · ` : ''}MMSI ${f.mmsi} · vis på kartet`, href: `#/flate?ais=${f.mmsi}`,
       })),
       ...brk.results.map((u) => ({ kategori: 'Kolleger', id: `usr${u.id}`, tittel: u.navn, sub: `${u.rolle} · ${u.epost}`, href: '#/kalender' })),
     ];
+    // Gyldig IMO som ikke finnes i AIS akkurat nå: tilby å legge den til i flåten uansett
+    if (gyldigImo(q.replace(/^imo\s*/i, '')) && !iFlate.has(q.replace(/^imo\s*/i, '')) && !ais.some((f) => f.imo === q.replace(/^imo\s*/i, ''))) {
+      const imo = q.replace(/^imo\s*/i, '');
+      ut.push({ kategori: 'Båter i AIS', id: `imo${imo}`, tittel: `Legg til IMO ${imo} i flåten`, sub: 'Ikke i AIS akkurat nå – vises på kartet når den kommer innenfor dekning', href: `#/flate?imo=${imo}` });
+    }
     return c.json(ut);
   });
 }

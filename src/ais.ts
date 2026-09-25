@@ -85,7 +85,7 @@ export async function sistePosisjoner(env: AisEnv, mmsi: string[]): Promise<Map<
 }
 
 /** Alle fartøy med nylig posisjon (stor liste – caches i 10 min). «Full»-modellen har IMO-nummer. */
-async function alleFartoy(env: AisEnv, cache: Cache): Promise<Fartoy[]> {
+export async function alleFartoy(env: AisEnv, cache: Cache): Promise<Fartoy[]> {
   if (!harNokkel(env)) return [];
   const nokkel = new Request('https://cache.rieber-flow.internal/ais-alle-v2');
   const treff = await cache.match(nokkel);
@@ -97,7 +97,7 @@ async function alleFartoy(env: AisEnv, cache: Cache): Promise<Fartoy[]> {
     const p = tilPos(raw);
     return p ? [{ mmsi: p.mmsi, imo: p.imo, navn: p.navn ?? '', skipstype: p.skipstype }] : [];
   });
-  await cache.put(nokkel, new Response(JSON.stringify(liste), { headers: { 'Cache-Control': 'max-age=600', 'Content-Type': 'application/json' } }));
+  await cache.put(nokkel, new Response(JSON.stringify(liste), { headers: { 'Cache-Control': 'max-age=120', 'Content-Type': 'application/json' } }));
   return liste;
 }
 
@@ -172,5 +172,13 @@ export async function diagnose(env: AisEnv) {
   } else {
     ut.konklusjon = `Barentswatch svarte ${r.status}. Klienten mangler trolig tilgang til AIS-scope.`;
   }
+  return ut;
+}
+
+/** Slår opp MMSI for IMO-numre blant fartøyene som er innenfor AIS-dekning akkurat nå. */
+export async function finnPaaImo(env: AisEnv, imoer: string[], cache: Cache): Promise<Map<string, { mmsi: string; navn: string }>> {
+  const ut = new Map<string, { mmsi: string; navn: string }>();
+  if (imoer.length === 0 || !harNokkel(env)) return ut;
+  for (const f of await alleFartoy(env, cache)) if (f.imo && imoer.includes(f.imo)) ut.set(f.imo, { mmsi: f.mmsi, navn: f.navn });
   return ut;
 }

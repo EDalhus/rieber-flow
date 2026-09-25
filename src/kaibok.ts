@@ -1,6 +1,7 @@
 import type { Hono } from 'hono';
 import type { Env } from './types';
 import { hentBruker, now } from './bruker';
+import { gyldigImo } from './imo';
 
 const OPERASJON = ['Lasting', 'Lossing'];
 const VARETYPE = ['Bulk', 'Pallevarer', 'Begge'];
@@ -9,7 +10,7 @@ const MAKS_BILDE = 1_200_000; // byte – en D1-rad tåler 2 MB, og base64 øker
 
 type LinjeInn = { produkt_id: number; antall: number };
 type Foering = {
-  baatnavn?: string; mmsi?: string | null; batanlop_id?: number | null; kai_dato?: string; operasjon?: string;
+  baatnavn?: string; mmsi?: string | null; imo?: string | null; batanlop_id?: number | null; kai_dato?: string; operasjon?: string;
   varetype?: string; tonn?: number | null; vurdering?: string; tilbakemelding?: string; linjer?: LinjeInn[];
 };
 
@@ -17,6 +18,7 @@ function valider(b: Foering): string | null {
   if (!b.baatnavn?.trim()) return 'Båtnavn kreves';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(b.kai_dato ?? '')) return 'Ugyldig dato';
   if (!OPERASJON.includes(b.operasjon ?? '')) return 'Operasjon må være Lasting eller Lossing';
+  if (b.imo && !gyldigImo(b.imo)) return 'Ugyldig IMO-nummer (7 siffer med riktig kontrollsiffer)';
   if (b.vurdering && !VURDERING.includes(b.vurdering)) return 'Ugyldig vurdering';
   if ((b.tilbakemelding ?? '').length > 4000) return 'Tilbakemeldingen er for lang';
   for (const l of b.linjer ?? []) if (!Number.isInteger(l.produkt_id) || !(l.antall > 0)) return 'Ugyldig produktlinje (velg produkt og antall større enn 0)';
@@ -68,7 +70,7 @@ export function kaibokRoutes(app: Hono<Env>) {
     if (+q.produkt > 0) { vilkar.push('EXISTS (SELECT 1 FROM KaibokLinjer x WHERE x.foering_id = k.id AND x.produkt_id = ?)'); args.push(+q.produkt); }
     if (q.fra) { vilkar.push('k.kai_dato >= ?'); args.push(q.fra); }
     if (q.til) { vilkar.push('k.kai_dato <= ?'); args.push(q.til); }
-    if (q.q) { vilkar.push('(k.baatnavn LIKE ? OR k.tilbakemelding LIKE ?)'); args.push(`%${q.q}%`, `%${q.q}%`); }
+    if (q.q) { vilkar.push('(k.baatnavn LIKE ? OR k.tilbakemelding LIKE ? OR k.imo LIKE ?)'); args.push(`%${q.q}%`, `%${q.q}%`, `%${q.q}%`); }
     const { results } = await c.env.DB.prepare(
       `SELECT k.*,
          (SELECT COUNT(*) FROM KaibokBilder b WHERE b.foering_id = k.id) AS antall_bilder,
@@ -111,9 +113,9 @@ export function kaibokRoutes(app: Hono<Env>) {
     if (typeof d === 'string') return c.json({ error: d }, 400);
     const { bruker } = await hentBruker(c);
     const r = await c.env.DB.prepare(
-      `INSERT INTO Kaibok (batanlop_id, baatnavn, mmsi, kai_dato, operasjon, varetype, tonn, vurdering, tilbakemelding, opprettet_av, opprettet, lager_fort)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,1)`,
-    ).bind(b.batanlop_id ?? null, b.baatnavn!.trim(), b.mmsi ?? null, b.kai_dato, b.operasjon, d.varetype, d.tonn,
+      `INSERT INTO Kaibok (batanlop_id, baatnavn, mmsi, imo, kai_dato, operasjon, varetype, tonn, vurdering, tilbakemelding, opprettet_av, opprettet, lager_fort)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+    ).bind(b.batanlop_id ?? null, b.baatnavn!.trim(), b.mmsi ?? null, b.imo?.trim() || null, b.kai_dato, b.operasjon, d.varetype, d.tonn,
       b.vurdering ?? 'Ikke vurdert', (b.tilbakemelding ?? '').trim(), bruker.id, now()).run();
     const id = r.meta.last_row_id;
     await c.env.DB.batch([
@@ -148,8 +150,8 @@ export function kaibokRoutes(app: Hono<Env>) {
     await db.batch([
       ...(fort ? lagerBevegelse(db, gammel.operasjon, gamleLinjer, -1) : []),
       db.prepare('DELETE FROM KaibokLinjer WHERE foering_id = ?').bind(id),
-      db.prepare('UPDATE Kaibok SET baatnavn=?, kai_dato=?, operasjon=?, varetype=?, tonn=?, vurdering=?, tilbakemelding=? WHERE id=?')
-        .bind(b.baatnavn!.trim(), b.kai_dato, b.operasjon, varetype, tonn ?? null, b.vurdering ?? 'Ikke vurdert', (b.tilbakemelding ?? '').trim(), id),
+      db.prepare('UPDATE Kaibok SET baatnavn=?, imo=?, kai_dato=?, operasjon=?, varetype=?, tonn=?, vurdering=?, tilbakemelding=? WHERE id=?')
+        .bind(b.baatnavn!.trim(), b.imo?.trim() || null, b.kai_dato, b.operasjon, varetype, tonn ?? null, b.vurdering ?? 'Ikke vurdert', (b.tilbakemelding ?? '').trim(), id),
       ...linjer.map((l) => db.prepare('INSERT INTO KaibokLinjer (foering_id, produkt_id, antall) VALUES (?,?,?)').bind(id, l.produkt_id, l.antall)),
       ...(fort ? lagerBevegelse(db, b.operasjon!, linjer, 1) : []),
     ]);

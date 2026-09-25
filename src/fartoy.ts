@@ -5,7 +5,8 @@ import { tilBase64 } from './kaibok';
 
 const MAKS_BILDE = 1_200_000;
 const FELT = ['rederi', 'kaptein_navn', 'kaptein_tlf', 'chief_navn', 'chief_tlf', 'epost', 'agent_navn', 'agent_tlf', 'vhf_kanal', 'kapasitet', 'bilde_url'] as const;
-const erMmsi = (m: string) => /^\d{9}$/.test(m);
+/** Nøkkel = MMSI (9 siffer), eller «IMO1234567» for båter som ennå ikke er funnet i AIS. */
+const erMmsi = (m: string) => /^(\d{9}|IMO\d{7})$/.test(m);
 
 /** Brukerstyrt båtinfo (kontakter, notater) og egne bilder. Delt mellom alle brukere. */
 export function fartoyRoutes(app: Hono<Env>) {

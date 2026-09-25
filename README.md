@@ -48,6 +48,8 @@ Fanen **Flåte & kart** viser et kart over Norge (Kartverket) der bare båtene i
 
 **Feilsøking:** trykk «Test AIS-tilkobling» på Flåte-siden (eller åpne `/api/ais/status`). Nøklene må ligge som *Variables and Secrets* på selve Worker-en (Settings), ikke som «Build»-variabler – og Worker-en må deployes på nytt etter at de er lagt inn.
 
+**Legg til med IMO:** en båt kan legges til i flåten (og føres i kaiboken) med bare IMO-nummer (valideres med kontrollsiffer), selv om den ikke er innenfor AIS-dekning nå. Den vises som «venter på AIS-signal», og kobles automatisk til MMSI og vises på kartet så snart den dukker opp i Barentswatch-dataene (sjekkes hver gang flåten hentes; fartøylisten caches i 2 min). Kontaktinfo og bilder du legger inn på IMO-båten følger med når den kobles.
+
 Kartet viser **kun ekte AIS-data** – uten nøkler er det tomt, og flåten starter tom: du legger til dine egne båter via søket. Dekning: norsk økonomisk sone, Svalbard og Jan Mayen; fiskefartøy under 15 m og fritidsbåter under 45 m er ikke med. Se [Barentswatch AIS-dokumentasjon](https://developer.barentswatch.no/docs/AIS/live-ais-api).
 
 ### Sjøvei til terminalen, ringer og båtkort

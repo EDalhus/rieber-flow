@@ -566,3 +566,7 @@ main > button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
 .prod-chips { display: flex; flex-direction: column; gap: 3px; }
 .prod-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .prod-chip i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.d-venter { background: #f5c26b; box-shadow: 0 0 0 3px #fff4d6; }
+.imo-boks { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+.imo-rad { display: grid; grid-template-columns: 110px 1fr auto; gap: 6px; align-items: center; }
+.imo-rad input { min-width: 0; padding: 8px 12px; }

@@ -110,12 +110,13 @@ export type FartoyInfo = {
   oppdatert: string; oppdatert_av_navn: string | null;
 };
 export type FartoyBilde = { id: number; hoved: number };
-export type FlateFartoy = { mmsi: string; navn: string; posisjon: Posisjon | null; gjest?: boolean };
+/** noekkel = MMSI, eller «IMO1234567» for båter lagt til med IMO som ennå ikke er funnet i AIS (venter = true). */
+export type FlateFartoy = { id?: number; mmsi: string | null; imo?: string | null; noekkel: string; navn: string; posisjon: Posisjon | null; venter?: boolean; gjest?: boolean };
 export type FlateSvar = { kilde: 'ais' | 'ingen'; feil: string | null; fartoy: FlateFartoy[] };
 
 export type Vurdering = 'Bra' | 'Merknad' | 'Avvik' | 'Ikke vurdert';
 export type Foering = {
-  id: number; batanlop_id: number | null; baatnavn: string; mmsi: string | null; kai_dato: string;
+  id: number; batanlop_id: number | null; baatnavn: string; mmsi: string | null; imo?: string | null; kai_dato: string;
   operasjon: 'Lasting' | 'Lossing'; varetype: 'Bulk' | 'Pallevarer' | 'Begge'; tonn: number | null;
   vurdering: Vurdering; tilbakemelding: string; antall_bilder?: number; antall_anlop?: number;
   opprettet_av_navn?: string | null; bilder?: { id: number; filnavn: string; storrelse: number }[];

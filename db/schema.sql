@@ -101,14 +101,20 @@ CREATE TABLE DashboardLayout (
   oppdatert   TEXT NOT NULL
 );
 
--- Brukerens flåte: båtene (MMSI) som vises på kartet. Alle andre AIS-fartøy holdes utenfor.
+-- Brukerens flåte: båtene som vises på kartet. Alle andre AIS-fartøy holdes utenfor.
+-- En båt kan legges til med MMSI og/eller IMO. Med bare IMO (f.eks. utenfor AIS-dekning) er mmsi tom
+-- til båten dukker opp i AIS – da kobles den automatisk og vises på kartet.
 CREATE TABLE Flate (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
   bruker_id   INTEGER NOT NULL REFERENCES Brukere(id) ON DELETE CASCADE,
-  mmsi        TEXT NOT NULL,
+  mmsi        TEXT,
+  imo         TEXT,
   navn        TEXT NOT NULL,
   lagt_til    TEXT NOT NULL,
-  PRIMARY KEY (bruker_id, mmsi)
+  CHECK (mmsi IS NOT NULL OR imo IS NOT NULL)
 );
+CREATE UNIQUE INDEX idx_flate_mmsi ON Flate(bruker_id, mmsi) WHERE mmsi IS NOT NULL;
+CREATE UNIQUE INDEX idx_flate_imo ON Flate(bruker_id, imo) WHERE imo IS NOT NULL;
 
 -- Kaibok: én føring pr. båtanløp ved kai (kan også føres manuelt for eldre anløp).
 CREATE TABLE Kaibok (
@@ -116,6 +122,7 @@ CREATE TABLE Kaibok (
   batanlop_id    INTEGER REFERENCES Batanlop(id) ON DELETE SET NULL,
   baatnavn       TEXT NOT NULL,
   mmsi           TEXT,
+  imo            TEXT,
   kai_dato       TEXT NOT NULL,               -- YYYY-MM-DD
   operasjon      TEXT NOT NULL CHECK (operasjon IN ('Lasting', 'Lossing')),
   varetype       TEXT NOT NULL CHECK (varetype IN ('Bulk', 'Pallevarer', 'Begge')),

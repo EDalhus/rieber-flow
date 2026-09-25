@@ -9,7 +9,8 @@ import { sokRoutes } from './sok';
 import { vaerRoutes } from './vaer';
 import { produktRoutes } from './produkter';
 import { kalenderRoutes } from './kalender';
-import { diagnose, kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
+import { diagnose, finnPaaImo, kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
+import { gyldigImo } from './imo';
 
 
 const app = new Hono<Env>();
@@ -376,39 +377,86 @@ app.delete('/api/meg/dashboard', async (c) => {
 
 // ---------- Flåte + kart (Barentswatch AIS) ----------
 
-/** Brukerens flåte med siste kjente posisjon. Kun disse fartøyene sendes til kartet. */
+/** Nøkkelen klienten bruker for en flåtebåt: MMSI, eller «IMO…» inntil MMSI er funnet i AIS. */
+const noekkel = (r: { mmsi: string | null; imo: string | null }) => r.mmsi ?? `IMO${r.imo}`;
+
+/** Brukerens flåte med siste kjente posisjon. Båter lagt til med bare IMO kobles automatisk når de dukker opp i AIS. */
 app.get('/api/flate', async (c) => {
   const { bruker } = await hentBruker(c);
-  const { results } = await c.env.DB.prepare('SELECT mmsi, navn FROM Flate WHERE bruker_id=? ORDER BY lagt_til, navn').bind(bruker.id).all<{ mmsi: string; navn: string }>();
-  let posisjoner = new Map<string, any>();
+  const db = c.env.DB;
+  let rader = (await db.prepare('SELECT id, mmsi, imo, navn FROM Flate WHERE bruker_id=? ORDER BY lagt_til, navn').bind(bruker.id).all<{ id: number; mmsi: string | null; imo: string | null; navn: string }>()).results;
   let feil: string | null = null;
+
+  // 1) Koble IMO-båter til MMSI når de er innenfor AIS-dekning
+  const ventende = rader.filter((r) => !r.mmsi && r.imo);
+  if (ventende.length) {
+    try {
+      const funnet = await finnPaaImo(c.env, ventende.map((r) => r.imo!), caches.default);
+      const stmts: D1PreparedStatement[] = [];
+      for (const r of ventende) {
+        const f = funnet.get(r.imo!);
+        if (!f) continue;
+        if (rader.some((x) => x.mmsi === f.mmsi)) { stmts.push(db.prepare('DELETE FROM Flate WHERE id=?').bind(r.id)); continue; } // finnes allerede med MMSI
+        const generisk = r.navn.startsWith('IMO ');
+        stmts.push(
+          db.prepare('UPDATE Flate SET mmsi=?, navn=? WHERE id=?').bind(f.mmsi, generisk ? f.navn : r.navn, r.id),
+          // Kontaktinfo/bilder som ble lagt inn på IMO-nøkkelen flyttes til MMSI
+          db.prepare('UPDATE OR IGNORE FartoyInfo SET mmsi=? WHERE mmsi=?').bind(f.mmsi, `IMO${r.imo}`),
+          db.prepare('UPDATE FartoyBilde SET mmsi=? WHERE mmsi=?').bind(f.mmsi, `IMO${r.imo}`),
+        );
+      }
+      if (stmts.length) {
+        await db.batch(stmts);
+        rader = (await db.prepare('SELECT id, mmsi, imo, navn FROM Flate WHERE bruker_id=? ORDER BY lagt_til, navn').bind(bruker.id).all<any>()).results;
+      }
+    } catch (e) { feil = (e as Error).message; }
+  }
+
+  // 2) Posisjoner for båtene som har MMSI
+  let posisjoner = new Map<string, any>();
   try {
-    posisjoner = await sistePosisjoner(c.env, results.map((r) => r.mmsi));
+    posisjoner = await sistePosisjoner(c.env, rader.filter((r) => r.mmsi).map((r) => r.mmsi!));
   } catch (e) {
-    feil = (e as Error).message;
+    feil ??= (e as Error).message;
   }
   return c.json({
     kilde: kilde(c.env), feil,
-    fartoy: results.map((r) => ({ ...r, posisjon: posisjoner.get(r.mmsi) ?? null })),
+    fartoy: rader.map((r) => {
+      const posisjon = r.mmsi ? posisjoner.get(r.mmsi) ?? null : null;
+      return { id: r.id, mmsi: r.mmsi, imo: r.imo, noekkel: noekkel(r), navn: r.navn, posisjon, venter: !r.mmsi };
+    }),
   });
 });
 
+/** Legg til båt med MMSI og/eller IMO. Med bare IMO vises den på kartet først når den er innenfor AIS-dekning. */
 app.post('/api/flate', async (c) => {
   const { bruker } = await hentBruker(c);
-  const b = await c.req.json<{ mmsi: string; navn?: string }>();
-  if (!/^\d{9}$/.test(b.mmsi ?? '')) return c.json({ error: 'MMSI må være 9 siffer' }, 400);
-  await c.env.DB.prepare('INSERT OR IGNORE INTO Flate (bruker_id, mmsi, navn, lagt_til) VALUES (?,?,?,?)')
-    .bind(bruker.id, b.mmsi, (b.navn ?? '').trim() || `MMSI ${b.mmsi}`, now()).run();
-  return c.json({ ok: true }, 201);
+  const b = await c.req.json<{ mmsi?: string; imo?: string; navn?: string }>();
+  const mmsi = b.mmsi?.trim() || null;
+  const imo = b.imo?.trim().replace(/^IMO\s*/i, '') || null;
+  if (!mmsi && !imo) return c.json({ error: 'Oppgi MMSI eller IMO-nummer' }, 400);
+  if (mmsi && !/^\d{9}$/.test(mmsi)) return c.json({ error: 'MMSI må være 9 siffer' }, 400);
+  if (imo && !gyldigImo(imo)) return c.json({ error: 'Ugyldig IMO-nummer (7 siffer med riktig kontrollsiffer)' }, 400);
+  let navn = (b.navn ?? '').trim();
+  let mmsiFunnet = mmsi;
+  // Har vi bare IMO: se om båten allerede er innenfor AIS-dekning
+  if (!mmsi && imo) {
+    const f = (await finnPaaImo(c.env, [imo], caches.default).catch(() => new Map())).get(imo);
+    if (f) { mmsiFunnet = f.mmsi; navn ||= f.navn; }
+  }
+  const dublett = await c.env.DB.prepare('SELECT id FROM Flate WHERE bruker_id=? AND ((mmsi IS NOT NULL AND mmsi=?) OR (imo IS NOT NULL AND imo=?))').bind(bruker.id, mmsiFunnet, imo).first();
+  if (dublett) return c.json({ ok: true, alleredeIFlaaten: true });
+  await c.env.DB.prepare('INSERT INTO Flate (bruker_id, mmsi, imo, navn, lagt_til) VALUES (?,?,?,?,?)')
+    .bind(bruker.id, mmsiFunnet, imo, navn || (imo ? `IMO ${imo}` : `MMSI ${mmsi}`), now()).run();
+  return c.json({ ok: true, iAis: !!mmsiFunnet }, 201);
 });
 
-app.delete('/api/flate/:mmsi', async (c) => {
+app.delete('/api/flate/:noekkel', async (c) => {
   const { bruker } = await hentBruker(c);
-  await c.env.DB.prepare('DELETE FROM Flate WHERE bruker_id=? AND mmsi=?').bind(bruker.id, c.req.param('mmsi')).run();
+  const n = c.req.param('noekkel');
+  await c.env.DB.prepare('DELETE FROM Flate WHERE bruker_id=? AND (mmsi=? OR (mmsi IS NULL AND imo=?))').bind(bruker.id, n, n.replace(/^IMO/, '')).run();
   return c.json({ ok: true });
 });
-
-app.get('/api/ais/status', async (c) => c.json(await diagnose(c.env).catch((e) => ({ konklusjon: (e as Error).message }))));
 
 app.get('/api/ais/sok', async (c) => {
   try {
