@@ -1,12 +1,11 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { fmtDato, fmtTonn, type Bat, type Dashboard as D, type SO } from './api';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useDash } from './dashctx';
+import { EKSTRA_WIDGETS } from './widgets-ekstra';
+import { fmtDato, fmtTonn } from './api';
 import { IconArrow } from './icons';
 import { StatusPill } from './ui';
 
-/** Data som alle dashboard-widgets deler (hentes én gang og poller). */
-export type DashData = { data: D; bater: Bat[]; ko: SO[] };
-export const DashCtx = createContext<DashData | null>(null);
-const useDash = () => useContext(DashCtx)!;
+export { DashCtx } from './dashctx';
 
 function useNow() {
   const [n, setN] = useState(Date.now());
@@ -197,7 +196,7 @@ function NesteFrist() {
 // ---------- Register ----------
 // Nye widgets legges bare til her: de dukker automatisk opp i «Legg til widget».
 
-export type WidgetDef = { id: string; tittel: string; w: number; h: number; minW: number; minH: number; komponent: () => ReactNode };
+export type WidgetDef = { id: string; tittel: string; beskrivelse?: string; w: number; h: number; minW: number; minH: number; komponent: () => ReactNode };
 
 export const WIDGETS: WidgetDef[] = [
   { id: 'kpi-lager', tittel: 'Lager (bulk)', w: 3, h: 3, minW: 2, minH: 3, komponent: KpiLager },
@@ -210,6 +209,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'beholdning', tittel: 'Beholdning (on-hand)', w: 5, h: 8, minW: 3, minH: 5, komponent: Beholdning },
   { id: 'framdrift', tittel: 'Lasteframdrift', w: 4, h: 8, minW: 3, minH: 5, komponent: Framdrift },
   { id: 'neste-frist', tittel: 'Neste lastebil-frist', w: 3, h: 8, minW: 3, minH: 4, komponent: NesteFrist },
+  ...EKSTRA_WIDGETS,
 ];
 
 export type Plass = { i: string; x: number; y: number; w: number; h: number };

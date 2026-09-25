@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { kartverketLag, skipIkon, terminalMarker } from '../kart';
 import { api, useApi, type Bat, type FlateFartoy, type FlateSvar, type Posisjon } from '../api';
 import { Baatkort } from './Baatkort';
 import { TERMINAL, fmtNm, fmtVarighet, lastSjovei, punktFra, sjovei, type Sjofelt, type Sjovei } from '../sjovei';
@@ -9,14 +9,6 @@ const kn = (v: number | null) => (v == null ? '–' : `${v.toFixed(1).replace('.
 const ferdsel = (f: FlateFartoy) => (f.posisjon?.sog ?? 0) > 0.5;
 
 const merke = (f: FlateFartoy) => `${f.navn} · ${kn(f.posisjon?.sog ?? null)}`;
-
-const skipIkon = (rot: number, valgt: boolean, beveger: boolean, gjest = false) =>
-  L.divIcon({
-    className: 'ship-icon',
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-    html: `<svg viewBox="0 0 34 34" style="transform:rotate(${rot}deg)"><path d="M17 3 L27 29 L17 24 L7 29 Z" fill="${gjest ? '#f59e0b' : valgt ? '#b9f26b' : beveger ? '#145a3a' : '#7a857f'}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>`,
-  });
 
 /** Kart over Norge (Kartverket) som bare viser fartøyene i brukerens flåte. */
 function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; valgt: string | null; spor: [number, number][]; rute: [number, number][]; onVelg: (m: string) => void }) {
@@ -31,12 +23,8 @@ function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; va
   useEffect(() => {
     const m = L.map(el.current!, { zoomControl: false, attributionControl: true }).setView([64.5, 14], 4);
     L.control.zoom({ position: 'bottomright' }).addTo(m);
-    L.tileLayer('https://cache.kartverket.no/v1/wmts/1.0.0/topograatone/default/webmercator/{z}/{y}/{x}.png', {
-      maxZoom: 18, attribution: '© <a href="https://www.kartverket.no/">Kartverket</a> · AIS: Kystverket via Barentswatch',
-    }).addTo(m);
-    L.marker([TERMINAL.lat, TERMINAL.lon], {
-      icon: L.divIcon({ className: 'terminal-ikon', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div>⚓</div>' }), zIndexOffset: 500,
-    }).bindTooltip(`Terminal · ${TERMINAL.navn}`, { direction: 'top', offset: [0, -14] }).addTo(m);
+    kartverketLag().addTo(m);
+    terminalMarker().addTo(m);
     ringer.current = L.layerGroup().addTo(m);
     kart.current = m;
     return () => { m.remove(); kart.current = null; markorer.current.clear(); };

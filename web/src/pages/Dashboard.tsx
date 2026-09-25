@@ -114,7 +114,7 @@ export function Dashboard() {
             {meny && (
               <div className="add-meny opp">
                 {skjulte.length === 0 && <span className="muted pad">Alle widgets er på dashboardet</span>}
-                {skjulte.map((w) => <button key={w.id} onClick={() => leggTil(w.id)}>{w.tittel}</button>)}
+                {skjulte.map((w) => <button key={w.id} onClick={() => leggTil(w.id)}><b>{w.tittel}</b>{w.beskrivelse && <small>{w.beskrivelse}</small>}</button>)}
               </div>
             )}
           </div>

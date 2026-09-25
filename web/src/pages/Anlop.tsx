@@ -6,14 +6,14 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { api, useApi, fmtDato, fmtTonn, textOn, type Bat, type SO, type Steg } from '../api';
-import { Linjer, Modal, Progress, SaltBadge, StatusPill } from '../ui';
+import { AisVelger, Linjer, Modal, Progress, SaltBadge, StatusPill } from '../ui';
 import { IconPlus } from '../icons';
 
 // ---------- Liste over båtanløp ----------
 
 export function Anlop() {
   const { data, reload } = useApi<Bat[]>('/batanlop');
-  const [nytt, setNytt] = useState({ skipsnavn: '', eta: '' });
+  const [nytt, setNytt] = useState({ skipsnavn: '', eta: '', mmsi: '' });
   const [apen, setApen] = useState(() => !!new URLSearchParams(location.hash.split('?')[1] ?? '').get('ny'));
   return (
     <>
@@ -39,14 +39,20 @@ export function Anlop() {
             className="skjema"
             onSubmit={async (e) => {
               e.preventDefault();
-              await api('/batanlop', 'POST', { skipsnavn: nytt.skipsnavn, eta: new Date(nytt.eta).toISOString() });
-              setNytt({ skipsnavn: '', eta: '' });
+              await api('/batanlop', 'POST', { skipsnavn: nytt.skipsnavn, eta: new Date(nytt.eta).toISOString(), mmsi: nytt.mmsi || undefined });
+              setNytt({ skipsnavn: '', eta: '', mmsi: '' });
               setApen(false);
               reload();
             }}
           >
             <label>Skipsnavn<input required autoFocus placeholder="F.eks. MV Nordic Star" value={nytt.skipsnavn} onChange={(e) => setNytt({ ...nytt, skipsnavn: e.target.value })} /></label>
             <label>Forventet ankomst (ETA)<input required type="datetime-local" value={nytt.eta} onChange={(e) => setNytt({ ...nytt, eta: e.target.value })} /></label>
+            <div className="bred">
+              <div className="muted" style={{ marginBottom: 4, fontSize: 13, fontWeight: 600 }}>
+                AIS-kobling {nytt.mmsi ? <>· valgt: <b>MMSI {nytt.mmsi}</b> <button type="button" className="chip liten" onClick={() => setNytt({ ...nytt, mmsi: '' })}>fjern</button></> : '(valgfritt – gir live posisjon og tid igjen på dashboardet)'}
+              </div>
+              {!nytt.mmsi && <AisVelger onVelg={(t) => setNytt({ ...nytt, mmsi: t.mmsi, skipsnavn: nytt.skipsnavn || t.navn })} />}
+            </div>
             <div className="modal-bunn" style={{ gridColumn: '1 / -1' }}>
               <span style={{ flex: 1 }} />
               <button type="button" className="btn ghost" onClick={() => setApen(false)}>Avbryt</button>
@@ -110,6 +116,7 @@ export function Lasteplan({ id }: { id: number }) {
   const [plan, setPlan] = useState<Steg[]>([]);
   const [lagrer, setLagrer] = useState(false);
   const [feil, setFeil] = useState<string | null>(null);
+  const [koble, setKoble] = useState(() => !!new URLSearchParams(location.hash.split('?')[1] ?? '').get('koble'));
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const { setNodeRef: planRef, isOver: overPlan } = useDroppable({ id: 'plan' });
   const { setNodeRef: ledigRef, isOver: overLedig } = useDroppable({ id: 'ledig' });
@@ -169,6 +176,7 @@ export function Lasteplan({ id }: { id: number }) {
         </div>
         <div className="actions">
           {lagrer && <span className="muted">Lagrer…</span>}
+          <button className="btn ghost sm" onClick={() => setKoble(true)}>{b.mmsi ? `📡 AIS: MMSI ${b.mmsi}` : '📡 Koble til AIS'}</button>
           {b.status !== 'Lasting' && !ferdig && (
             <button className="primary" disabled={plan.length === 0}
               onClick={async () => { try { await api(`/batanlop/${id}/start`, 'POST'); reload(); } catch (e) { setFeil((e as Error).message); } }}>
@@ -177,6 +185,15 @@ export function Lasteplan({ id }: { id: number }) {
           )}
         </div>
       </div>
+      {koble && (
+        <Modal tittel={`AIS-kobling for ${b.skipsnavn}`} onLukk={() => setKoble(false)}>
+          <p className="muted">Kobler anløpet til et fartøy i AIS, slik at dashboardet kan vise posisjon, fart og tid igjen.</p>
+          {b.mmsi && (
+            <p>Nå koblet til <b>MMSI {b.mmsi}</b> <button className="chip liten" onClick={async () => { await api(`/batanlop/${id}`, 'PATCH', { mmsi: null }); setKoble(false); reload(); }}>fjern kobling</button></p>
+          )}
+          <AisVelger autoFokus onVelg={async (t) => { await api(`/batanlop/${id}`, 'PATCH', { mmsi: t.mmsi }); setKoble(false); reload(); }} />
+        </Modal>
+      )}
       {feil && <div className="error">{feil}</div>}
       {b.tonn_totalt > 0 && (
         <div className="card">

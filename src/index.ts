@@ -6,6 +6,7 @@ import { hentBruker, now, type Bruker } from './bruker';
 import { kaibokRoutes } from './kaibok';
 import { fartoyRoutes } from './fartoy';
 import { sokRoutes } from './sok';
+import { vaerRoutes } from './vaer';
 import { kalenderRoutes } from './kalender';
 import { diagnose, kilde, sistePosisjoner, sokFartoy, spor, type AisEnv } from './ais';
 
@@ -71,17 +72,21 @@ app.get('/api/batanlop', async (c) => {
 app.post('/api/batanlop', async (c) => {
   const b = await c.req.json<{ skipsnavn: string; eta: string; mmsi?: string }>();
   if (!b.skipsnavn || !b.eta) return c.json({ error: 'skipsnavn og eta kreves' }, 400);
+  if (b.mmsi && !/^\d{9}$/.test(b.mmsi)) return c.json({ error: 'MMSI må være 9 siffer' }, 400);
   const r = await c.env.DB.prepare('INSERT INTO Batanlop (skipsnavn, mmsi, eta) VALUES (?,?,?)')
-    .bind(b.skipsnavn, b.mmsi ?? null, b.eta).run();
+    .bind(b.skipsnavn, b.mmsi || null, b.eta).run();
   return c.json({ id: r.meta.last_row_id }, 201);
 });
 
 app.patch('/api/batanlop/:id', async (c) => {
   const id = +c.req.param('id');
-  const b = await c.req.json<{ skipsnavn?: string; eta?: string; status?: string }>();
+  const b = await c.req.json<{ skipsnavn?: string; eta?: string; status?: string; mmsi?: string | null }>();
+  if (b.mmsi && !/^\d{9}$/.test(b.mmsi)) return c.json({ error: 'MMSI må være 9 siffer' }, 400);
+  // mmsi: utelatt = uendret, tom streng/null = fjern koblingen
   await c.env.DB.prepare(
-    'UPDATE Batanlop SET skipsnavn=COALESCE(?,skipsnavn), eta=COALESCE(?,eta), status=COALESCE(?,status) WHERE id=?',
-  ).bind(b.skipsnavn ?? null, b.eta ?? null, b.status ?? null, id).run();
+    `UPDATE Batanlop SET skipsnavn=COALESCE(?1,skipsnavn), eta=COALESCE(?2,eta), status=COALESCE(?3,status),
+       mmsi=CASE WHEN ?4 = 1 THEN NULLIF(?5,'') ELSE mmsi END WHERE id=?6`,
+  ).bind(b.skipsnavn ?? null, b.eta ?? null, b.status ?? null, 'mmsi' in b ? 1 : 0, b.mmsi ?? '', id).run();
   return c.json({ ok: true });
 });
 
@@ -419,6 +424,7 @@ app.get('/api/ais/spor/:mmsi', async (c) => {
 kaibokRoutes(app);
 fartoyRoutes(app);
 sokRoutes(app);
+vaerRoutes(app);
 kalenderRoutes(app);
 
 // ---------- Demo ----------

@@ -445,3 +445,59 @@ main > button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
   main > button.search { position: static; transform: none; width: 100%; margin-bottom: 12px; }
   .page-head > div:first-child { max-width: none; }
 }
+
+/* Nye widgets */
+.add-meny button { display: flex; flex-direction: column; gap: 1px; }
+.add-meny button small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.add-meny { min-width: 300px; max-height: 60vh; overflow: auto; }
+.nb-lenke { font-size: 13px; font-weight: 600; color: var(--g600); white-space: nowrap; }
+.nb-navn { display: flex; align-items: center; gap: 8px; font-size: 20px; }
+.nb-plan { margin: 2px 0 8px; }
+.nb-kartboks { flex: 1; min-height: 120px; border-radius: 16px; overflow: hidden; position: relative; margin-bottom: 8px; }
+.nb-kart { position: absolute; inset: 0; background: #dfe7e2; }
+.nb-tall, .vr-tall { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; }
+.nb-tall > div, .vr-tall > div { display: flex; flex-direction: column; padding: 2px 6px; border-left: 1px solid var(--line); }
+.nb-tall > div:first-child, .vr-tall > div:first-child { border-left: 0; }
+.nb-tall span, .vr-tall span { font-size: 11px; letter-spacing: .06em; color: var(--muted); }
+.nb-tall b { font-size: 21px; }
+.nb-eta { margin-top: 6px; text-align: center; font-weight: 700; color: var(--g600); font-size: 14px; }
+.nb-eta.sen { color: var(--danger); }
+.nb-tom { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 8px; color: var(--muted); }
+.bm-topp { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.bm-topp b { font-size: 44px; letter-spacing: -.02em; line-height: 1; }
+.bm-liste { flex: 1; gap: 8px; margin-bottom: 10px; }
+.bm-liste li { display: flex; align-items: center; gap: 10px; }
+.bm-uke { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.bm-dag { display: flex; flex-direction: column; align-items: center; background: var(--g100); color: var(--g800); border-radius: 12px; padding: 4px 0; font-size: 12px; }
+.bm-dag b { font-size: 16px; }
+.bm-dag.middels { background: #fff1d6; color: #7a4a00; } .bm-dag.lav { background: #fee4e2; color: #b42318; }
+.lo-liste { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.lo-bar { position: relative; height: 16px; border-radius: 99px; background: #e4ebe7; margin: 6px 0 3px; }
+.lo-lager { height: 100%; border-radius: 99px; }
+.lo-behov { position: absolute; top: -4px; bottom: -4px; width: 3px; border-radius: 3px; background: var(--ink); }
+.lo-tekst { font-size: 12.5px; } .lo-note { margin: 6px 0 0; font-size: 12px; }
+.kb-stat { display: flex; gap: 18px; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.kb-stat b { color: var(--ink); font-size: 18px; }
+.kb-liste { gap: 8px; }
+.kb-liste a { display: flex; align-items: center; gap: 10px; }
+.vr-topp { display: flex; align-items: center; gap: 12px; }
+.vr-symbol { font-size: 44px; line-height: 1; }
+.vr-temp { font-size: 40px; letter-spacing: -.02em; }
+.vr-tall { margin: 10px 0; } .vr-tall b { font-size: 20px; } .vr-tall small { color: var(--muted); font-size: 11.5px; }
+.vr-varsel { background: #fff1d6; color: #7a4a00; border-radius: 12px; padding: 7px 12px; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.vr-timer { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: auto; text-align: center; font-size: 12px; }
+.vr-timer > div { display: flex; flex-direction: column; align-items: center; background: var(--panel); border-radius: 12px; padding: 5px 0; }
+.vr-timer i { font-style: normal; font-size: 17px; } .vr-timer span, .vr-timer small { color: var(--muted); font-size: 11px; }
+.vr-kilde { font-size: 11px; margin-top: 6px; text-align: right; }
+.lp-liste { display: flex; flex-direction: column; gap: 14px; }
+.lp-rad { display: block; } .lp-tekst { font-size: 12.5px; }
+.hv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; flex: 1; align-content: start; }
+.hv-knapp { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 0; border-radius: 14px; padding: 12px 14px; font: inherit; font-weight: 600; cursor: pointer; text-align: left; color: var(--ink); }
+.hv-knapp:hover { background: var(--g100); }
+.hv-knapp span { font-size: 20px; }
+.ais-velger input { width: 100%; }
+.ais-velger .list { margin-top: 6px; gap: 2px; }
+.ais-info { margin: 6px 0; font-size: 13px; }
+.ais-treff { width: 100%; display: flex; flex-direction: column; text-align: left; border: 0; background: none; padding: 8px 12px; border-radius: 12px; cursor: pointer; font: inherit; }
+.ais-treff:hover { background: var(--g100); } .ais-treff small { color: var(--muted); }
+.nb-kart .leaflet-control-attribution { display: none; }

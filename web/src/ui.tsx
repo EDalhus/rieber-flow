@@ -1,5 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
-import { textOn, type Linje } from './api';
+import { useEffect, useState, type ReactNode } from 'react';
+import { api, textOn, type Linje } from './api';
 
 export function SaltBadge({ salttype, farge }: { salttype: string; farge: string }) {
   return (
@@ -81,4 +81,39 @@ export async function krympBilde(fil: File): Promise<File> {
     if (blob && blob.size <= 1_100_000) return new File([blob], fil.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
   }
   throw new Error(`${fil.name} er for stort selv etter komprimering`);
+}
+
+export type AisTreff = { mmsi: string; imo: string | null; navn: string };
+
+/** Søk opp et fartøy i AIS (navn, IMO eller MMSI) og velg det. */
+export function AisVelger({ onVelg, autoFokus }: { onVelg: (t: AisTreff) => void; autoFokus?: boolean }) {
+  const [q, setQ] = useState('');
+  const [treff, setTreff] = useState<AisTreff[]>([]);
+  const [info, setInfo] = useState<string | null>(null);
+  useEffect(() => {
+    if (q.trim().length < 2) { setTreff([]); setInfo(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await api<{ kilde: string; treff: AisTreff[] }>(`/ais/sok?q=${encodeURIComponent(q)}`);
+        setTreff(r.treff);
+        setInfo(r.kilde === 'ingen' ? 'AIS er ikke koblet til (mangler Barentswatch-nøkler).' : r.treff.length === 0 ? 'Ingen treff' : null);
+      } catch (e) { setInfo((e as Error).message); }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+  return (
+    <div className="ais-velger">
+      <input value={q} autoFocus={autoFokus} onChange={(e) => setQ(e.target.value)} placeholder="Søk AIS: skipsnavn, IMO eller MMSI" />
+      {info && <div className="muted ais-info">{info}</div>}
+      <ul className="list">
+        {treff.map((t) => (
+          <li key={t.mmsi}>
+            <button type="button" className="ais-treff" onClick={() => onVelg(t)}>
+              <b>{t.navn}</b><small>{t.imo ? `IMO ${t.imo} · ` : ''}MMSI {t.mmsi}</small>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
