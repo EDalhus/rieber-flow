@@ -396,6 +396,18 @@ app.get('/api/ais/sok', async (c) => {
   }
 });
 
+/** Siste posisjon for ett fartøy (også de som ikke er i flåten) – brukes når man søker seg til en båt. */
+app.get('/api/ais/fartoy/:mmsi', async (c) => {
+  const mmsi = c.req.param('mmsi');
+  if (!/^\d{9}$/.test(mmsi)) return c.json({ error: 'Ugyldig MMSI' }, 400);
+  try {
+    const p = (await sistePosisjoner(c.env, [mmsi])).get(mmsi) ?? null;
+    return c.json({ kilde: kilde(c.env), mmsi, posisjon: p });
+  } catch (e) {
+    return c.json({ error: (e as Error).message }, 502);
+  }
+});
+
 app.get('/api/ais/spor/:mmsi', async (c) => {
   try {
     return c.json(await spor(c.env, c.req.param('mmsi')));

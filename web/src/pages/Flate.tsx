@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { api, useApi, type Bat, type FlateFartoy, type FlateSvar } from '../api';
+import { api, useApi, type Bat, type FlateFartoy, type FlateSvar, type Posisjon } from '../api';
 import { Baatkort } from './Baatkort';
 import { TERMINAL, fmtNm, fmtVarighet, lastSjovei, punktFra, sjovei, type Sjofelt, type Sjovei } from '../sjovei';
 
@@ -10,12 +10,12 @@ const ferdsel = (f: FlateFartoy) => (f.posisjon?.sog ?? 0) > 0.5;
 
 const merke = (f: FlateFartoy) => `${f.navn} · ${kn(f.posisjon?.sog ?? null)}`;
 
-const skipIkon = (rot: number, valgt: boolean, beveger: boolean) =>
+const skipIkon = (rot: number, valgt: boolean, beveger: boolean, gjest = false) =>
   L.divIcon({
     className: 'ship-icon',
     iconSize: [34, 34],
     iconAnchor: [17, 17],
-    html: `<svg viewBox="0 0 34 34" style="transform:rotate(${rot}deg)"><path d="M17 3 L27 29 L17 24 L7 29 Z" fill="${valgt ? '#b9f26b' : beveger ? '#145a3a' : '#7a857f'}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>`,
+    html: `<svg viewBox="0 0 34 34" style="transform:rotate(${rot}deg)"><path d="M17 3 L27 29 L17 24 L7 29 Z" fill="${gjest ? '#f59e0b' : valgt ? '#b9f26b' : beveger ? '#145a3a' : '#7a857f'}" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></svg>`,
   });
 
 /** Kart over Norge (Kartverket) som bare viser fartøyene i brukerens flåte. */
@@ -52,7 +52,7 @@ function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; va
       if (!p) continue;
       na.add(f.mmsi);
       punkter.push([p.lat, p.lon]);
-      const ikon = skipIkon(p.heading ?? p.cog ?? 0, f.mmsi === valgt, ferdsel(f));
+      const ikon = skipIkon(p.heading ?? p.cog ?? 0, f.mmsi === valgt, ferdsel(f), f.gjest);
       let mk = markorer.current.get(f.mmsi);
       if (!mk) {
         mk = L.marker([p.lat, p.lon], { icon: ikon, riseOnHover: true }).addTo(m);
@@ -95,7 +95,7 @@ function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; va
     const nm = (valgtPos.sog ?? 0) >= 1 ? Math.max(6, valgtPos.sog! * 2) : 12;
     const hjorner = [0, 90, 180, 270].map((b) => punktFra(valgtPos.lat, valgtPos.lon, b, nm));
     kart.current?.fitBounds(L.latLngBounds(hjorner), { padding: [30, 30], maxZoom: 10, animate: true });
-  }, [valgt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [valgt, valgtPos == null]); // eslint-disable-line react-hooks/exhaustive-deps  (zoom når båten velges, eller når posisjonen først dukker opp)
 
   // Sjøveien til terminalen
   useEffect(() => {
@@ -109,22 +109,43 @@ function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; va
 export function Flate() {
   const { data, reload } = useApi<FlateSvar>('/flate', 30000);
   const { data: bater } = useApi<Bat[]>('/batanlop', 0);
-  const [valgt, setValgt] = useState<string | null>(() => new URLSearchParams(location.hash.split('?')[1] ?? '').get('mmsi'));
+  const [valgt, setValgt] = useState<string | null>(() => { const q = new URLSearchParams(location.hash.split('?')[1] ?? ''); return q.get('mmsi') ?? q.get('ais'); });
   const [spor, setSpor] = useState<[number, number][]>([]);
   const [q, setQ] = useState('');
   const [treff, setTreff] = useState<{ mmsi: string; imo: string | null; navn: string }[]>([]);
   const [feil, setFeil] = useState<string | null>(null);
   const [diag, setDiag] = useState<Record<string, unknown> | null>(null);
   const [felt, setFelt] = useState<Sjofelt | null>(null);
+  const [gjest, setGjest] = useState<FlateFartoy | null>(null);
+  const [gjestFeil, setGjestFeil] = useState<string | null>(null);
+  const [aisParam, setAisParam] = useState<string | null>(() => new URLSearchParams(location.hash.split('?')[1] ?? '').get('ais'));
   const [sorter, setSorter] = useState<'standard' | 'naermest'>('standard');
 
   useEffect(() => { lastSjovei().then(setFelt).catch(() => {}); }, []);
+
+  // Søkt frem fra ⌘K: hent posisjonen til en båt utenfor flåten, vis den på kartet og hold den oppdatert
+  useEffect(() => {
+    if (!aisParam) return;
+    let avbrutt = false;
+    const hent = async () => {
+      try {
+        const r = await api<{ posisjon: Posisjon | null }>(`/ais/fartoy/${aisParam}`);
+        if (avbrutt) return;
+        if (!r.posisjon) { setGjestFeil('Fant ingen nylig AIS-posisjon for denne båten (den kan ligge utenfor dekningsområdet eller ha slått av AIS).'); setGjest((g) => g); return; }
+        setGjestFeil(null);
+        setGjest({ mmsi: aisParam, navn: r.posisjon.navn ?? `MMSI ${aisParam}`, posisjon: r.posisjon, gjest: true });
+      } catch (e) { if (!avbrutt) setGjestFeil((e as Error).message); }
+    };
+    hent();
+    const t = setInterval(hent, 30000);
+    return () => { avbrutt = true; clearInterval(t); };
+  }, [aisParam]);
   // Sjøvei til terminalen for hver båt i flåten (forhåndsberegnet felt – ingen serverkall)
   const sjoMap = useMemo(() => {
     const m = new Map<string, Sjovei | null>();
-    if (felt && data) for (const f of data.fartoy) if (f.posisjon) m.set(f.mmsi, sjovei(felt, f.posisjon.lat, f.posisjon.lon));
+    if (felt && data) for (const f of [...data.fartoy, ...(gjest ? [gjest] : [])]) if (f.posisjon) m.set(f.mmsi, sjovei(felt, f.posisjon.lat, f.posisjon.lon));
     return m;
-  }, [felt, data]);
+  }, [felt, data, gjest]);
 
   useEffect(() => {
     if (!valgt) { setSpor([]); return; }
@@ -146,7 +167,11 @@ export function Flate() {
   const leggTil = async (mmsi: string, navn: string) => { await api('/flate', 'POST', { mmsi, navn }); setQ(''); reload(); };
   const fjern = async (mmsi: string) => { await api(`/flate/${mmsi}`, 'DELETE'); if (valgt === mmsi) setValgt(null); reload(); };
   const fraAnlop = (bater ?? []).filter((b) => b.mmsi && !iFlate.has(b.mmsi));
-  const valgtF = data.fartoy.find((f) => f.mmsi === valgt);
+  // En søkt båt vises som «gjest» på kartet til den legges i flåten eller lukkes
+  const alle = gjest && !iFlate.has(gjest.mmsi) ? [...data.fartoy, gjest] : data.fartoy;
+  const valgtF = alle.find((f) => f.mmsi === valgt);
+  const lukk = () => { setValgt(null); setGjest(null); setAisParam(null); setGjestFeil(null); };
+  const leggGjestTilFlate = async () => { if (!gjest) return; await leggTil(gjest.mmsi, gjest.navn); setGjest(null); setAisParam(null); };
   const rute = valgt ? sjoMap.get(valgt)?.sti ?? [] : [];
   const sortert = sorter === 'naermest'
     ? [...data.fartoy].sort((a, b) => (sjoMap.get(a.mmsi)?.nm ?? Infinity) - (sjoMap.get(b.mmsi)?.nm ?? Infinity))
@@ -174,12 +199,13 @@ export function Flate() {
         )}
       </div>
       {(data.feil || feil) && <div className="error">{data.feil ?? feil}</div>}
+      {gjestFeil && <div className="info">{gjestFeil}</div>}
 
       <div className="flate-grid">
-        <div className="kart-wrap"><Kart fartoy={data.fartoy} valgt={valgt} spor={spor} rute={rute} onVelg={setValgt} /></div>
+        <div className="kart-wrap"><Kart fartoy={alle} valgt={valgt} spor={spor} rute={rute} onVelg={setValgt} /></div>
 
         <aside className="panel flate-panel">
-         {valgtF ? <Baatkort f={valgtF} sjo={sjoMap.get(valgtF.mmsi) ?? null} onTilbake={() => setValgt(null)} /> : (<>
+         {valgtF ? <Baatkort f={valgtF} sjo={sjoMap.get(valgtF.mmsi) ?? null} onTilbake={lukk} gjest={!!valgtF.gjest} onLeggTil={leggGjestTilFlate} /> : (<>
           <div className="row"><h3>Min flåte <span className="muted">· {data.fartoy.length} båter</span></h3>
             <select className="sorter" value={sorter} onChange={(e) => setSorter(e.target.value as 'standard' | 'naermest')}>
               <option value="standard">Rekkefølge</option><option value="naermest">Nærmest terminalen</option>

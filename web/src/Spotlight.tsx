@@ -18,9 +18,9 @@ const HANDLINGER: Treff[] = [
   { kategori: 'Handlinger', id: 'h3', tittel: 'Nytt båtanløp', sub: 'Opprett anløp og bygg lasteplan', href: '#/anlop' },
 ];
 const IKON: Record<string, string> = {
-  Sider: '↗', Handlinger: '⚡', Båtanløp: '🚢', Salgsordrer: '📦', Kaibok: '📖', 'Flåte & båtinfo': '🗺️', Kalender: '📅', Kolleger: '👤',
+  Sider: '↗', Handlinger: '⚡', Båtanløp: '🚢', Salgsordrer: '📦', Kaibok: '📖', 'Flåte & båtinfo': '🗺️', Kalender: '📅', Kolleger: '👤', 'Båter i AIS': '📡',
 };
-const REKKEFOLGE = ['Sider', 'Handlinger', 'Båtanløp', 'Salgsordrer', 'Kaibok', 'Flåte & båtinfo', 'Kalender', 'Kolleger'];
+const REKKEFOLGE = ['Sider', 'Handlinger', 'Båtanløp', 'Flåte & båtinfo', 'Båter i AIS', 'Salgsordrer', 'Kaibok', 'Kalender', 'Kolleger'];
 
 const norm = (s: string) => s.toLowerCase();
 const erMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -94,7 +94,7 @@ export function Spotlight({ apen, onLukk }: { apen: boolean; onLukk: () => void 
       <div className="spot" role="dialog" aria-label="Søk" onKeyDown={tast}>
         <div className="spot-inn">
           <IconSearch />
-          <input ref={inn} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søk i båter, ordre, kaibok, kalender, kontakter …" spellCheck={false} autoComplete="off" />
+          <input ref={inn} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søk i båter (også utenfor flåten), ordre, kaibok, kalender …" spellCheck={false} autoComplete="off" />
           {laster && <span className="spot-spinner" />}
           <kbd>esc</kbd>
         </div>

@@ -99,7 +99,7 @@ export type FartoyInfo = {
   oppdatert: string; oppdatert_av_navn: string | null;
 };
 export type FartoyBilde = { id: number; hoved: number };
-export type FlateFartoy = { mmsi: string; navn: string; posisjon: Posisjon | null };
+export type FlateFartoy = { mmsi: string; navn: string; posisjon: Posisjon | null; gjest?: boolean };
 export type FlateSvar = { kilde: 'ais' | 'simulert'; feil: string | null; fartoy: FlateFartoy[] };
 
 export type Vurdering = 'Bra' | 'Merknad' | 'Avvik' | 'Ikke vurdert';

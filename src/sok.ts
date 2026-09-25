@@ -1,6 +1,7 @@
 import type { Hono } from 'hono';
 import type { Env } from './types';
 import { hentBruker } from './bruker';
+import { sokFartoy } from './ais';
 
 export type SokTreff = { kategori: string; id: string; tittel: string; sub: string; href: string };
 
@@ -16,7 +17,7 @@ export function sokRoutes(app: Hono<Env>) {
     const db = c.env.DB;
     const { bruker } = await hentBruker(c);
 
-    const [bat, so, kai, flate, info, frv, brk] = await Promise.all([
+    const [bat, so, kai, flate, info, frv, brk, minFlate, ais] = await Promise.all([
       db.prepare(`SELECT id, skipsnavn, eta, status FROM Batanlop WHERE skipsnavn LIKE ?1 ESCAPE '\\' OR mmsi LIKE ?1 ESCAPE '\\' ORDER BY eta DESC LIMIT 5`).bind(p).all<any>(),
       db.prepare(
         `SELECT DISTINCT s.id, s.ordrenummer, s.kunde, s.tonn, s.status, s.batanlop_id, s.salttype FROM Salgsordrer s
@@ -42,7 +43,11 @@ export function sokRoutes(app: Hono<Env>) {
          ORDER BY f.dato_fra LIMIT 6`,
       ).bind(p).all<any>(),
       db.prepare(`SELECT id, navn, rolle, epost FROM Brukere WHERE navn LIKE ?1 ESCAPE '\\' OR rolle LIKE ?1 ESCAPE '\\' OR epost LIKE ?1 ESCAPE '\\' LIMIT 4`).bind(p).all<any>(),
+      db.prepare('SELECT mmsi FROM Flate WHERE bruker_id = ?').bind(bruker.id).all<{ mmsi: string }>(),
+      // Alle fartøy i AIS (Kystverket/Barentswatch) – feil her skal aldri ødelegge resten av søket
+      sokFartoy(c.env, q, caches.default).catch(() => []),
     ]);
+    const iFlate = new Set(minFlate.results.map((f) => f.mmsi));
 
     const ut: SokTreff[] = [
       ...bat.results.map((b) => ({ kategori: 'Båtanløp', id: `bat${b.id}`, tittel: b.skipsnavn, sub: `ETA ${dato(b.eta)} · ${b.status}`, href: `#/anlop/${b.id}` })),
@@ -63,6 +68,10 @@ export function sokRoutes(app: Hono<Env>) {
       ...frv.results.map((f) => ({
         kategori: 'Kalender', id: `frv${f.id}`, tittel: `${f.navn} – ${f.kategori}${f.tittel ? `: ${f.tittel}` : ''}`,
         sub: `${dato(f.dato_fra)}${f.dato_til !== f.dato_fra ? ` – ${dato(f.dato_til)}` : ''} · ${f.tid_fra ? `${f.tid_fra}–${f.tid_til}` : 'hele dagen'}`, href: `#/kalender?dato=${f.dato_fra}`,
+      })),
+      ...ais.filter((f) => !iFlate.has(f.mmsi)).slice(0, 6).map((f) => ({
+        kategori: 'Båter i AIS', id: `ais${f.mmsi}`, tittel: f.navn || `MMSI ${f.mmsi}`,
+        sub: `${f.imo ? `IMO ${f.imo} · ` : ''}MMSI ${f.mmsi} · vis på kartet`, href: `#/flate?ais=${f.mmsi}`,
       })),
       ...brk.results.map((u) => ({ kategori: 'Kolleger', id: `usr${u.id}`, tittel: u.navn, sub: `${u.rolle} · ${u.epost}`, href: '#/kalender' })),
     ];

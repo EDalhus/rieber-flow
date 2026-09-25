@@ -30,7 +30,7 @@ function Verdi({ v, type }: { v: string; type: Kontakt }) {
 }
 
 /** Båtkort: bilde, live AIS-data, sjøvei til terminalen og felles kontaktinfo som teamet selv vedlikeholder. */
-export function Baatkort({ f, sjo, onTilbake }: { f: FlateFartoy; sjo: Sjovei | null; onTilbake: () => void }) {
+export function Baatkort({ f, sjo, onTilbake, gjest, onLeggTil }: { f: FlateFartoy; sjo: Sjovei | null; onTilbake: () => void; gjest?: boolean; onLeggTil?: () => void }) {
   const { data, reload } = useApi<{ info: FartoyInfo | null; bilder: FartoyBilde[] }>(`/fartoy/${f.mmsi}`, 0);
   const [redigerer, setRedigerer] = useState(false);
   const [skjema, setSkjema] = useState<FartoyInfo>(TOM);
@@ -77,6 +77,13 @@ export function Baatkort({ f, sjo, onTilbake }: { f: FlateFartoy; sjo: Sjovei | 
         </div>
         <button className="icon" onClick={onTilbake} aria-label="Lukk båtkort" title="Tilbake til flåten">✕</button>
       </div>
+
+      {gjest && (
+        <div className="bk-gjest">
+          <span>Ikke i flåten din</span>
+          <button className="btn primary sm" onClick={onLeggTil}>＋ Legg til i flåten</button>
+        </div>
+      )}
 
       <div className="bk-bilde">
         {bildeSrc ? <img src={bildeSrc} alt={f.navn} referrerPolicy="no-referrer" /> : (

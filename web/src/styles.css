@@ -420,3 +420,5 @@ button.search:hover { box-shadow: 0 0 0 2px var(--g100); }
 .spot-fot kbd { margin-right: 4px; }
 .spot kbd { background: #eef1ef; border-radius: 6px; padding: 1px 7px; font: 600 11.5px inherit; color: #59645e; }
 @media (max-width: 640px) { .spot-bg { padding-top: 6vh; } .spot-fot { display: none; } }
+
+.bk-gjest { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #fff4d6; color: #7a4a00; border-radius: 14px; padding: 8px 12px; font-weight: 700; font-size: 13.5px; }
