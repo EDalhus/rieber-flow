@@ -1,25 +1,28 @@
-// Sjøvei-avstand til terminalen. Feltet er forhåndsberegnet (scripts/sjovei): Dijkstra fra terminalen over
-// sjøceller (Natural Earth-land, ~1 km oppløsning), så avstanden følger kysten – ikke luftlinja.
+// Sjøvei-avstand til terminalen. To forhåndsberegnede felt (scripts/sjovei), begge Dijkstra fra terminalen over sjøceller
+// bygd på Kartverkets kartdata (vannflater): A = hele kysten (500 m), B = detaljvindu rundt Ålesund (50 m).
+// A er seedet med de nøyaktige B-avstandene, så tallene utenfor vinduet inkluderer sluttetappen inn til terminalen.
 export const TERMINAL = { navn: 'Flatholmen havn 81B, Ålesund', lat: 62.47917879, lon: 6.19291566 };
 
-export type Sjofelt = { lat1: number; lon0: number; dlat: number; dlon: number; H: number; W: number; d: Uint16Array };
+export type Grid = { lat1: number; lon0: number; dlat: number; dlon: number; H: number; W: number; e: number; d: Uint16Array };
+export type Sjofelt = { a: Grid; b: Grid };
+
+async function lastGrid(url: string): Promise<Grid> {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Fant ikke sjøvei-data');
+  let buf = await r.arrayBuffer();
+  if (new Uint8Array(buf, 0, 2).join() === '31,139') {
+    buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  }
+  const dv = new DataView(buf);
+  return {
+    lat1: dv.getFloat32(4, true), lon0: dv.getFloat32(8, true), dlat: dv.getFloat32(12, true), dlon: dv.getFloat32(16, true),
+    H: dv.getUint16(20, true), W: dv.getUint16(22, true), e: dv.getUint16(24, true), d: new Uint16Array(buf, 32),
+  };
+}
 
 let felt: Promise<Sjofelt> | null = null;
-
 export function lastSjovei(): Promise<Sjofelt> {
-  felt ??= (async () => {
-    const r = await fetch('/sjovei.bin.gz');
-    if (!r.ok) throw new Error('Fant ikke sjøvei-data');
-    let buf = await r.arrayBuffer();
-    if (new Uint8Array(buf, 0, 2).join() === '31,139') {
-      buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
-    }
-    const dv = new DataView(buf);
-    return {
-      lat1: dv.getFloat32(4, true), lon0: dv.getFloat32(8, true), dlat: dv.getFloat32(12, true), dlon: dv.getFloat32(16, true),
-      H: dv.getUint16(20, true), W: dv.getUint16(22, true), d: new Uint16Array(buf, 32),
-    };
-  })().catch((e) => { felt = null; throw e; });
+  felt ??= Promise.all([lastGrid('/sjovei-a.bin.gz'), lastGrid('/sjovei-b.bin.gz')]).then(([a, b]) => ({ a, b })).catch((e) => { felt = null; throw e; });
   return felt;
 }
 
@@ -48,49 +51,81 @@ const mellom = (di: number, dj: number): [number, number][] => {
 
 export type Sjovei = { nm: number; luftlinje: number; sti: [number, number][] };
 
-/** Sjøvei fra en posisjon til terminalen, inkl. rute. `null` hvis posisjonen er utenfor kartutsnittet. */
-export function sjovei(f: Sjofelt, lat: number, lon: number): Sjovei | null {
-  const { lat1, lon0, dlat, dlon, H, W, d } = f;
-  const cellLat = (i: number) => lat1 - (i + 0.5) * dlat;
-  const cellLon = (j: number) => lon0 + (j + 0.5) * dlon;
-  const i0 = Math.floor((lat1 - lat) / dlat), j0 = Math.floor((lon - lon0) / dlon);
-  if (i0 < 0 || j0 < 0 || i0 >= H || j0 >= W) return null;
-  const sjo = (i: number, j: number) => i >= 0 && j >= 0 && i < H && j < W && d[i * W + j] > 0;
+const cellLat = (g: Grid, i: number) => g.lat1 - (i + 0.5) * g.dlat;
+const cellLon = (g: Grid, j: number) => g.lon0 + (j + 0.5) * g.dlon;
+const iVindu = (g: Grid, lat: number, lon: number) => lat <= g.lat1 && lat >= g.lat1 - g.H * g.dlat && lon >= g.lon0 && lon <= g.lon0 + g.W * g.dlon;
+const erSjo = (g: Grid, i: number, j: number) => i >= 0 && j >= 0 && i < g.H && j < g.W && g.d[i * g.W + j] > 0;
 
-  // Båter ved kai ligger på «land» i rutenettet – bruk nærmeste sjøcelle
-  let i = i0, j = j0, ekstra = 0;
-  if (!sjo(i, j)) {
-    let best = Infinity;
-    for (let a = -8; a <= 8; a++) for (let b = -8; b <= 8; b++) {
-      if (!sjo(i0 + a, j0 + b)) continue;
-      const m = luftlinjeNm(lat, lon, cellLat(i0 + a), cellLon(j0 + b));
-      if (m < best) { best = m; i = i0 + a; j = j0 + b; }
-    }
-    if (!isFinite(best)) return null;
-    ekstra = best;
+/** Nærmeste sjøcelle (båter ved kai ligger på «land» i rutenettet). */
+function snapp(g: Grid, lat: number, lon: number, maks: number) {
+  const i0 = Math.floor((g.lat1 - lat) / g.dlat), j0 = Math.floor((lon - g.lon0) / g.dlon);
+  let best = Infinity, bi = -1, bj = -1;
+  for (let a = -maks; a <= maks; a++) for (let b = -maks; b <= maks; b++) {
+    if (!erSjo(g, i0 + a, j0 + b)) continue;
+    const m = luftlinjeNm(lat, lon, cellLat(g, i0 + a), cellLon(g, j0 + b));
+    if (m < best) { best = m; bi = i0 + a; bj = j0 + b; }
   }
-  const nm = (d[i * W + j] - 1) / 10 + ekstra;
+  return bi < 0 ? null : { i: bi, j: bj, ekstra: best };
+}
 
-  // Følg fallet i avstandsfeltet ned til terminalen
-  const punkter: [number, number][] = [[lat, lon]];
-  for (let n = 0; n < 8000; n++) {
-    let bi = -1, bj = -1, bd = d[i * W + j];
+/** Følger fallet i avstandsfeltet nedover. Stopper når `stopp` slår til, eller ved bunnen. */
+function nedstigning(g: Grid, i: number, j: number, ut: [number, number][], stopp?: (lat: number, lon: number) => boolean) {
+  for (let n = 0; n < 12000; n++) {
+    let bi = -1, bj = -1, bd = g.d[i * g.W + j];
     for (const [di, dj] of RETN) {
       const ni = i + di, nj = j + dj;
-      if (!sjo(ni, nj) || d[ni * W + nj] >= bd) continue;
-      if (!mellom(di, dj).every(([a, b]) => sjo(i + a, j + b))) continue;
-      bd = d[ni * W + nj]; bi = ni; bj = nj;
+      if (!erSjo(g, ni, nj) || g.d[ni * g.W + nj] >= bd) continue;
+      if (!mellom(di, dj).every(([a, b]) => erSjo(g, i + a, j + b))) continue;
+      bd = g.d[ni * g.W + nj]; bi = ni; bj = nj;
     }
-    if (bi < 0) break;
+    if (bi < 0) return { i, j, stoppet: false };
     i = bi; j = bj;
-    punkter.push([cellLat(i), cellLon(j)]);
+    const lat = cellLat(g, i), lon = cellLon(g, j);
+    ut.push([lat, lon]);
+    if (stopp?.(lat, lon)) return { i, j, stoppet: true };
+  }
+  return { i, j, stoppet: false };
+}
+
+/** Sjøvei fra en posisjon til terminalen, inkl. rute. `null` hvis posisjonen er utenfor kartutsnittet. */
+export function sjovei(f: Sjofelt, lat: number, lon: number): Sjovei | null {
+  const { a, b } = f;
+  const punkter: [number, number][] = [[lat, lon]];
+  let nm: number | null = null;
+
+  if (iVindu(b, lat, lon)) {
+    const s = snapp(b, lat, lon, 20);
+    if (s) { nm = (b.d[s.i * b.W + s.j] - 1) / b.e + s.ekstra; nedstigning(b, s.i, s.j, punkter); }
+  }
+  if (nm === null) {
+    const s = snapp(a, lat, lon, 10);
+    if (!s) return null;
+    nm = (a.d[s.i * a.W + s.j] - 1) / a.e + s.ekstra;
+    // Grovt felt (A) til vi er inne i detaljvinduet, deretter finfeltet (B) resten av veien
+    const r = nedstigning(a, s.i, s.j, punkter, (la, lo) => iVindu(b, la, lo));
+    if (r.stoppet) {
+      const [pl, po] = punkter[punkter.length - 1];
+      const sb = snapp(b, pl, po, 30);
+      if (sb) nedstigning(b, sb.i, sb.j, punkter);
+    }
   }
   punkter.push([TERMINAL.lat, TERMINAL.lon]);
-  return { nm, luftlinje: luftlinjeNm(lat, lon, TERMINAL.lat, TERMINAL.lon), sti: forenkle(punkter, 0.004) };
+  const land = (la: number, lo: number) => {
+    const g = iVindu(b, la, lo) ? b : a;
+    const i = Math.floor((g.lat1 - la) / g.dlat), j = Math.floor((lo - g.lon0) / g.dlon);
+    return i >= 0 && j >= 0 && i < g.H && j < g.W && g.d[i * g.W + j] === 0;
+  };
+  // Forenkle ruta, men aldri slik at en rett strekning krysser land
+  const fri = (p: [number, number], q: [number, number]) => {
+    const n = Math.ceil(luftlinjeNm(p[0], p[1], q[0], q[1]) / (iVindu(b, p[0], p[1]) ? 0.02 : 0.12));
+    for (let k = 2; k < n - 1; k++) if (land(p[0] + ((q[0] - p[0]) * k) / n, p[1] + ((q[1] - p[1]) * k) / n)) return false;
+    return true;
+  };
+  return { nm, luftlinje: luftlinjeNm(lat, lon, TERMINAL.lat, TERMINAL.lon), sti: forenkle(punkter, 0.001, fri) };
 }
 
 /** Douglas–Peucker (toleranse i grader). */
-function forenkle(p: [number, number][], tol: number): [number, number][] {
+function forenkle(p: [number, number][], tol: number, fri: (a: [number, number], b: [number, number]) => boolean): [number, number][] {
   if (p.length < 3) return p;
   const k = Math.cos(p[0][0] * rad);
   const avst = (q: [number, number], a: [number, number], b: [number, number]) => {
@@ -101,8 +136,9 @@ function forenkle(p: [number, number][], tol: number): [number, number][] {
   };
   let maks = 0, idx = 0;
   for (let n = 1; n < p.length - 1; n++) { const a = avst(p[n], p[0], p[p.length - 1]); if (a > maks) { maks = a; idx = n; } }
-  if (maks <= tol) return [p[0], p[p.length - 1]];
-  return [...forenkle(p.slice(0, idx + 1), tol).slice(0, -1), ...forenkle(p.slice(idx), tol)];
+  if (maks <= tol && fri(p[0], p[p.length - 1])) return [p[0], p[p.length - 1]];
+  if (maks <= tol) idx = p.length >> 1; // korden krysser land: del på midten
+  return [...forenkle(p.slice(0, idx + 1), tol, fri).slice(0, -1), ...forenkle(p.slice(idx), tol, fri)];
 }
 
 // ---------- Formatering ----------

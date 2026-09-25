@@ -9,6 +9,8 @@ const OSLOFJORD: Rute = [[59.0, 10.4], [58.6, 9.9], [58.0, 8.6], [57.9, 7.0], [5
 const NORDLAND: Rute = [[67.28, 13.6], [67.9, 13.6], [68.6, 14.6], [69.3, 16.3], [69.9, 18.7]];
 const MIDT: Rute = [[62.6, 5.6], [63.2, 7.0], [63.7, 8.9], [64.4, 9.9], [65.0, 10.6]];
 
+const ALESUND: Rute = [[62.62, 5.2], [62.52, 5.62], [62.47, 5.95], [62.46, 6.02]];
+
 export type MockFartoy = { mmsi: string; imo: string; navn: string; rute: Rute; periodeTimer: number; forskyvning: number; destinasjon: string; skipstype: number; sog: number };
 
 export const KATALOG: MockFartoy[] = [
@@ -19,6 +21,7 @@ export const KATALOG: MockFartoy[] = [
   { mmsi: '257600001', imo: '9100005', navn: 'MS KYSTLINJE', rute: SOR_NORD, periodeTimer: 70, forskyvning: 0.75, destinasjon: 'NOTOS', skipstype: 60, sog: 15 },
   { mmsi: '257600002', imo: '9100006', navn: 'MV FJORDBULK', rute: OSLOFJORD, periodeTimer: 16, forskyvning: 0.2, destinasjon: 'NOKRS', skipstype: 70, sog: 10 },
   { mmsi: '257600003', imo: '9100007', navn: 'MS NORDLYS EXPRESS', rute: NORDLAND, periodeTimer: 12, forskyvning: 0.4, destinasjon: 'NOTOS', skipstype: 60, sog: 17 },
+  { mmsi: '257600005', imo: '9100009', navn: 'MV GULLHAV', rute: ALESUND, periodeTimer: 2, forskyvning: 0.35, destinasjon: 'NOALE', skipstype: 70, sog: 6.1 },
   { mmsi: '257600004', imo: '9100008', navn: 'MV HAVBRIS', rute: MIDT, periodeTimer: 8, forskyvning: 0.9, destinasjon: 'NOTRD', skipstype: 70, sog: 10 },
 ];
 

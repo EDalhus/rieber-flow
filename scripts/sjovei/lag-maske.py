@@ -1,10 +1,11 @@
 """
-Trinn 1 av 2: rasteriserer land (Natural Earth 10m) til en sjø/land-maske over norskekysten.
+Trinn 1 av 3: rasteriserer land (Natural Earth 10m) til en grov sjø/land-maske (reserve utenfor Kartverkets dekning).
 
   pip install pillow numpy
   curl -L -o ne_land.geojson https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_land.geojson
   python3 lag-maske.py ne_land.geojson maske.bin
-  node beregn.mjs maske.bin ../../web/public/sjovei.bin.gz
+  python3 hent-kartverket.py maske.bin maske-a.bin maske-b.bin
+  node beregn.mjs maske-a.bin maske-b.bin ../../web/public/sjovei-a.bin.gz ../../web/public/sjovei-b.bin.gz
 """
 import json, struct, sys
 import numpy as np
