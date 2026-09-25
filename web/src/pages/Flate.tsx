@@ -69,7 +69,7 @@ function Kart({ fartoy, valgt, spor, rute, onVelg }: { fartoy: FlateFartoy[]; va
   // Spor siste 24 t for valgt fartøy
   useEffect(() => {
     linje.current?.remove();
-    linje.current = spor.length > 1 ? L.polyline(spor, { color: '#1f7a4d', weight: 3, dashArray: '6 6', opacity: 0.9 }).addTo(kart.current!) : null;
+    linje.current = spor.length > 1 ? L.polyline(spor, { color: '#7a857f', weight: 2.5, dashArray: '4 7', opacity: 0.9 }).addTo(kart.current!) : null;
   }, [spor]);
 
   // Ringer rundt valgt båt: hvor langt den kommer på 15 min, 30 min, 1 t og 2 t ved gjeldende fart

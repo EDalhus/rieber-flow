@@ -48,6 +48,13 @@ Fanen **Flåte & kart** viser et kart over Norge (Kartverket) der bare båtene i
 
 Uten nøkler vises **simulerte posisjoner** langs kysten (merket i UI-et), slik at demoen fungerer uten konto. Demo-flåten bruker plassholder-MMSI-er – i live-modus finner du ekte fartøy via søket. Dekning: norsk økonomisk sone, Svalbard og Jan Mayen; fiskefartøy under 15 m og fritidsbåter under 45 m er ikke med. Se [Barentswatch AIS-dokumentasjon](https://developer.barentswatch.no/docs/AIS/live-ais-api).
 
+### Sjøvei til terminalen, ringer og båtkort
+
+- **Sjøvei (ikke luftlinje):** `web/public/sjovei.bin.gz` er et forhåndsberegnet avstandsfelt (~1 km rutenett, Natural Earth-land) fra terminalen på **Flatholmen havn 81B, Ålesund** (62,4792 N, 6,1929 Ø – Geonorge adresse-API) til alle sjøceller. Nettleseren slår opp avstand og tegner sjøveien uten serverkall. Det er et estimat (grov kystlinje; smale sund/farled er ikke modellert) – bygges på nytt med `scripts/sjovei/` (se toppen av `lag-maske.py`).
+- **Ringer:** velg en båt for å se ringer for 15 min, 30 min, 1 t og 2 t ved gjeldende fart (ligger båten stille vises faste avstander). Kartet viser navn og fart ved hver båt.
+- **Båtkort:** live AIS-data, sjøvei/ETA til terminalen og **felles kontaktinfo** (rederi, kaptein/chief med klikkbare telefonnumre, e-post, agent, VHF, kapasitet, notater) som alle kan redigere (`/api/fartoy/:mmsi`).
+- **Bilder:** Kystverkets AIS-API har ingen bilder (NAIS henter dem fra ship-info.com, som ikke har åpent API). Man laster derfor opp egne bilder (nyeste blir hovedbilde), eller legger inn en https-lenke.
+
 ## Kaibok og kalender
 
 - **Kaibok** (`/api/kaibok`): en føring pr. anløp med båtnavn, dato til kai, lasting/lossing, bulk/pallevarer/begge, tonn, vurdering (Bra/Merknad/Avvik), tilbakemelding og bilder. Filtrer på båt (alle anløp for samme båt), operasjon, vare, vurdering, dato og fritekst. Når en båt er ferdig lastet opprettes føringen automatisk, klar for tilbakemelding.
