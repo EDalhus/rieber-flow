@@ -184,13 +184,13 @@ export function Flate() {
           <h1>Flåte & kart</h1>
           <p className="sub">Bare båtene i flåten din vises</p>
         </div>
-        <span className={`kilde ${data.kilde}`}>{data.kilde === 'ais' ? '● Live AIS · Kystverket' : '◌ Simulerte posisjoner'}</span>
+        <span className={`kilde ${data.kilde}`}>{data.kilde === 'ais' ? '● Live AIS · Kystverket' : '○ AIS ikke koblet til'}</span>
       </div>
-      {data.kilde === 'simulert' && (
-        <div className="info">Ingen Barentswatch-nøkkel er satt, så posisjonene er simulert. Sett <code>BARENTSWATCH_CLIENT_ID</code> og <code>BARENTSWATCH_CLIENT_SECRET</code> for ekte AIS-data (se README).</div>
+      {data.kilde === 'ingen' && (
+        <div className="info">AIS er ikke koblet til, så kartet har ingen posisjoner. Legg inn <code>BARENTSWATCH_CLIENT_ID</code> og <code>BARENTSWATCH_CLIENT_SECRET</code> på Worker-en (se README).</div>
       )}
       {data.kilde === 'ais' && data.fartoy.length > 0 && data.fartoy.every((f) => !f.posisjon) && !data.feil && (
-        <div className="info">Live AIS er på, men ingen av båtene i flåten har posisjon. Demo-båtene har plassholder-MMSI – fjern dem og søk opp ekte fartøy under «Legg til båt».</div>
+        <div className="info">Ingen av båtene i flåten har nylig AIS-posisjon. Sjekk MMSI, eller søk opp båten under «Legg til båt».</div>
       )}
       <div className="diag">
         <button className="btn ghost sm" onClick={async () => setDiag(await api<Record<string, unknown>>('/ais/status').catch((e) => ({ konklusjon: (e as Error).message })))}>Test AIS-tilkobling</button>

@@ -46,7 +46,7 @@ Fanen **Flåte & kart** viser et kart over Norge (Kartverket) der bare båtene i
 
 **Feilsøking:** trykk «Test AIS-tilkobling» på Flåte-siden (eller åpne `/api/ais/status`). Nøklene må ligge som *Variables and Secrets* på selve Worker-en (Settings), ikke som «Build»-variabler – og Worker-en må deployes på nytt etter at de er lagt inn.
 
-Uten nøkler vises **simulerte posisjoner** langs kysten (merket i UI-et), slik at demoen fungerer uten konto. Demo-flåten bruker plassholder-MMSI-er – i live-modus finner du ekte fartøy via søket. Dekning: norsk økonomisk sone, Svalbard og Jan Mayen; fiskefartøy under 15 m og fritidsbåter under 45 m er ikke med. Se [Barentswatch AIS-dokumentasjon](https://developer.barentswatch.no/docs/AIS/live-ais-api).
+Kartet viser **kun ekte AIS-data** – uten nøkler er det tomt, og flåten starter tom: du legger til dine egne båter via søket. Dekning: norsk økonomisk sone, Svalbard og Jan Mayen; fiskefartøy under 15 m og fritidsbåter under 45 m er ikke med. Se [Barentswatch AIS-dokumentasjon](https://developer.barentswatch.no/docs/AIS/live-ais-api).
 
 ### Sjøvei til terminalen, ringer og båtkort
 

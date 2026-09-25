@@ -213,7 +213,7 @@ select.user-sel { font: inherit; border: 0; background: transparent; font-weight
 .chip { border: 1px solid var(--g400); background: #fff; color: var(--g800); border-radius: 999px; padding: 5px 12px; font-weight: 600; cursor: pointer; }
 .chip:hover { background: var(--g100); }
 .kilde { font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px; background: #fff; }
-.kilde.ais { color: var(--g600); } .kilde.simulert { color: #9a5b00; }
+.kilde.ais { color: var(--g600); } .kilde.ingen { color: #9a5b00; }
 .info { background: #fff4d6; color: #7a4a00; padding: 10px 14px; border-radius: 14px; margin-bottom: 12px; font-size: 14px; }
 .info code { background: rgba(0,0,0,.07); padding: 1px 6px; border-radius: 6px; }
 .ship-icon { background: none; border: 0; }

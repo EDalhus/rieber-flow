@@ -1,6 +1,5 @@
 // Barentswatch AIS (Kystverkets åpne AIS-data). Dokumentasjon: https://developer.barentswatch.no/docs/AIS/live-ais-api
-// Uten BARENTSWATCH_CLIENT_ID/SECRET faller vi tilbake til simulerte posisjoner (src/mock.ts).
-import { KATALOG, mockSiste, mockSpor } from './mock';
+// Kun ekte AIS-data: uten BARENTSWATCH_CLIENT_ID/SECRET returneres ingen posisjoner.
 
 export type AisEnv = { BARENTSWATCH_CLIENT_ID?: string; BARENTSWATCH_CLIENT_SECRET?: string };
 
@@ -18,7 +17,7 @@ const LIVE = 'https://live.ais.barentswatch.no';
 const HISTORIC = 'https://historic.ais.barentswatch.no';
 
 export const harNokkel = (env: AisEnv) => !!(env.BARENTSWATCH_CLIENT_ID && env.BARENTSWATCH_CLIENT_SECRET);
-export const kilde = (env: AisEnv) => (harNokkel(env) ? 'ais' : 'simulert');
+export const kilde = (env: AisEnv) => (harNokkel(env) ? 'ais' : 'ingen');
 
 let token: { verdi: string; utloper: number } | null = null;
 
@@ -71,10 +70,7 @@ function tilPos(raw: any): Pos | null {
 export async function sistePosisjoner(env: AisEnv, mmsi: string[]): Promise<Map<string, Pos>> {
   const ut = new Map<string, Pos>();
   if (mmsi.length === 0) return ut;
-  if (!harNokkel(env)) {
-    for (const m of mmsi) { const p = mockSiste(m); if (p) ut.set(m, p); }
-    return ut;
-  }
+  if (!harNokkel(env)) return ut;
   const body = JSON.stringify({ mmsi: mmsi.map(Number) });
   const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
   // «Full» gir destinasjon/ETA; faller tilbake til standardmodellen hvis den avvises
@@ -90,7 +86,7 @@ export async function sistePosisjoner(env: AisEnv, mmsi: string[]): Promise<Map<
 
 /** Alle fartøy med nylig posisjon (stor liste – caches i 10 min). «Full»-modellen har IMO-nummer. */
 async function alleFartoy(env: AisEnv, cache: Cache): Promise<Fartoy[]> {
-  if (!harNokkel(env)) return KATALOG.map((k) => ({ mmsi: k.mmsi, imo: k.imo, navn: k.navn, skipstype: k.skipstype }));
+  if (!harNokkel(env)) return [];
   const nokkel = new Request('https://cache.rieber-flow.internal/ais-alle-v2');
   const treff = await cache.match(nokkel);
   if (treff) return (await treff.json()) as Fartoy[];
@@ -138,7 +134,7 @@ export async function sokFartoy(env: AisEnv, q: string, cache: Cache): Promise<F
 
 /** Siste 24 timers spor. */
 export async function spor(env: AisEnv, mmsi: string) {
-  if (!harNokkel(env)) return mockSpor(mmsi);
+  if (!harNokkel(env)) return [];
   const r = await bw(env, `${HISTORIC}/v1/historic/trackslast24hours/${encodeURIComponent(mmsi)}`);
   if (!r.ok) return [];
   return ((await r.json()) as any[]).flatMap((raw) => {

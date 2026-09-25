@@ -17,9 +17,9 @@ INSERT INTO Varelager (salttype, fargekode, tonn_bulk, antall_bigbags) VALUES
 
 -- 3 båter
 INSERT INTO Batanlop (skipsnavn, mmsi, eta, status) VALUES
-  ('MV Nordic Star',   '257123400', strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-3 hours'),  'Lasting'),
-  ('MS Baltic Trader', '219456700', strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+1 day', '+6 hours'), 'Ventet'),
-  ('MV Arctic Breeze', '258987600', strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+3 days'),   'Ventet');
+  ('MV Nordic Star',   NULL, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-3 hours'),  'Lasting'),
+  ('MS Baltic Trader', NULL, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+1 day', '+6 hours'), 'Ventet'),
+  ('MV Arctic Breeze', NULL, strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '+3 days'),   'Ventet');
 
 -- 12 salgsordrer
 -- Båt 1 (Nordic Star, 600t): 4 ordrer på tvers av kunder og salttyper
@@ -71,28 +71,19 @@ INSERT INTO SalgsordreLinjer (so_id, produkt, salttype, emballasje, antall, enhe
   ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10075'), 'Nitrittsalt', 'Industri', 'Pall', 2, '40 × 25 kg', 1000),
   ((SELECT id FROM Salgsordrer WHERE ordrenummer = 'SO-10075'), 'Fint raffinert salt', 'Industri', 'Bigbag', 1, '500 kg', 500);
 
--- Flåte for demo-brukerne (plassholder-MMSI-er; i ekte AIS-modus legger man til ekte fartøy via søk)
-INSERT INTO Flate (bruker_id, mmsi, navn, lagt_til)
-SELECT b.id, f.mmsi, f.navn, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-FROM Brukere b
-JOIN (
-  SELECT '257123400' AS mmsi, 'MV Nordic Star' AS navn
-  UNION ALL SELECT '219456700', 'MS Baltic Trader'
-  UNION ALL SELECT '258987600', 'MV Arctic Breeze'
-  UNION ALL SELECT '257555100', 'MV Salt Carrier'
-) f;
+
 
 -- Kaibok (historikk)
 INSERT INTO Kaibok (baatnavn, mmsi, kai_dato, operasjon, varetype, tonn, vurdering, tilbakemelding, opprettet) VALUES
-  ('MV Nordic Star', '257123400', date('now', '-152 days'), 'Lasting', 'Bulk', 5200, 'Bra', 'Lastet uten problemer. Ferdig 4 timer før planlagt avgang.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  ('MS Baltic Trader', '219456700', date('now', '-121 days'), 'Lossing', 'Pallevarer', 640, 'Merknad', '2 paller fikk fuktskade på plast – reklamert til rederiet. Resten OK.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  ('MV Arctic Breeze', '258987600', date('now', '-92 days'), 'Lasting', 'Begge', 3100, 'Bra', 'Bulk og bigbags lastet i riktig rekkefølge. Kaptein fornøyd.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  ('MV Salt Carrier', '257555100', date('now', '-63 days'), 'Lossing', 'Bulk', 7400, 'Bra', 'Lossing gikk raskt, ingen støvproblemer.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  ('MV Nordic Star', '257123400', date('now', '-77 days'), 'Lasting', 'Begge', 4100, 'Avvik', 'Hjullaster 2 stod med feil i 3 timer. Forsinket avgang. Bilder tatt av lasterommet.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  ('MS Baltic Trader', '219456700', date('now', '-46 days'), 'Lasting', 'Bulk', 2800, 'Bra', 'Uten merknader.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  ('MV Nordic Star', NULL, date('now', '-152 days'), 'Lasting', 'Bulk', 5200, 'Bra', 'Lastet uten problemer. Ferdig 4 timer før planlagt avgang.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  ('MS Baltic Trader', NULL, date('now', '-121 days'), 'Lossing', 'Pallevarer', 640, 'Merknad', '2 paller fikk fuktskade på plast – reklamert til rederiet. Resten OK.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  ('MV Arctic Breeze', NULL, date('now', '-92 days'), 'Lasting', 'Begge', 3100, 'Bra', 'Bulk og bigbags lastet i riktig rekkefølge. Kaptein fornøyd.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  ('MV Salt Carrier', NULL, date('now', '-63 days'), 'Lossing', 'Bulk', 7400, 'Bra', 'Lossing gikk raskt, ingen støvproblemer.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  ('MV Nordic Star', NULL, date('now', '-77 days'), 'Lasting', 'Begge', 4100, 'Avvik', 'Hjullaster 2 stod med feil i 3 timer. Forsinket avgang. Bilder tatt av lasterommet.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  ('MS Baltic Trader', NULL, date('now', '-46 days'), 'Lasting', 'Bulk', 2800, 'Bra', 'Uten merknader.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   ('MS Kystlinje', NULL, date('now', '-31 days'), 'Lasting', 'Pallevarer', 380, 'Merknad', 'Manglet ett pallenummer på pakkseddel – rettet før avgang.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  ('MV Salt Carrier', '257555100', date('now', '-12 days'), 'Lasting', 'Bulk', 6100, 'Bra', 'Fin flyt. Vindkast under lasting, men ingen problemer.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  ('MV Nordic Star', '257123400', date('now', '-19 days'), 'Lossing', 'Pallevarer', 520, 'Bra', 'Nitrittsalt og fint raffinert salt mottatt komplett.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
+  ('MV Salt Carrier', NULL, date('now', '-12 days'), 'Lasting', 'Bulk', 6100, 'Bra', 'Fin flyt. Vindkast under lasting, men ingen problemer.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  ('MV Nordic Star', NULL, date('now', '-19 days'), 'Lossing', 'Pallevarer', 520, 'Bra', 'Nitrittsalt og fint raffinert salt mottatt komplett.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
 
 -- Fravær i kalenderen
 INSERT INTO Fravaer (bruker_id, kategori, tittel, dato_fra, dato_til, tid_fra, tid_til, ikke_overtid, opprettet) VALUES
@@ -104,7 +95,3 @@ INSERT INTO Fravaer (bruker_id, kategori, tittel, dato_fra, dato_til, tid_fra, t
   ((SELECT id FROM Brukere WHERE epost = 'per@rieber.demo'), 'Sykdom', 'Barn syk', date('now', '+1 days'), date('now', '+1 days'), NULL, NULL, 0, strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   ((SELECT id FROM Brukere WHERE epost = 'ola@rieber.demo'), 'Ikke overtid', 'Kan ikke ta overtid', date('now', '+4 days'), date('now', '+4 days'), NULL, NULL, 1, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
 
--- Eksempel på båtinfo (fiktive kontaktopplysninger)
-INSERT INTO FartoyInfo (mmsi, rederi, kaptein_navn, kaptein_tlf, chief_navn, chief_tlf, epost, agent_navn, agent_tlf, vhf_kanal, kapasitet, notater, oppdatert) VALUES
-  ('257123400', 'Nordic Bulk Shipping AS', 'Kaptein Henrik Moe', '+47 000 00 001', 'Chief Ivar Bakke', '+47 000 00 002', 'bridge@nordicstar.example', 'Sunnmøre Shipping Agency', '+47 000 00 003', 'VHF 12', '8 500 tonn / 3 lasterom', 'Foretrekker kai 2. Ta kontakt med chief 2 timer før ankomst for lugekonfigurasjon.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  ('219456700', 'Baltic Marine Ltd', 'Captain Jens Larsen', '+47 000 00 004', 'Chief Anna Nowak', '+47 000 00 005', 'master@baltictrader.example', '', '', 'VHF 16 → 14', '5 200 tonn / 2 lasterom', 'Engelsktalende mannskap. Sender lasteplan på e-post dagen før.', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
