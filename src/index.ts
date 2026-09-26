@@ -32,28 +32,40 @@ const soKol = (a: string) => `
 
 const PRODUKTER_SQL = `SELECT * FROM Produkter WHERE aktiv=1 ORDER BY CASE type WHEN 'Bulk' THEN 1 WHEN 'Bigbag' THEN 2 ELSE 3 END, navn`;
 
-/** Utleverte tonn (ferdige ordrer) pr. dag og pr. periode – ekte tall fra Salgsordrer.ferdig_tidspunkt. */
+/**
+ * Tonn lastet (ut) og losset (inn) pr. dag – ekte tall:
+ *  - ut: ferdige ordrer/lastesteg (lastebil og båt, fra Salgsordrer.ferdig_tidspunkt) + manuelle kaibok-føringer med lasting
+ *  - inn: kaibok-føringer med lossing
+ * Automatiske kaibok-føringer fra ferdig lastede båter (lager_fort = 0) telles ikke to ganger.
+ */
 app.get('/api/dashboard', async (c) => {
   const varer = (await c.env.DB.prepare(PRODUKTER_SQL).all()).results as any[];
   const sum = (t: string) => varer.filter((v) => v.type === t).reduce((x, v) => x + v.lager, 0);
-  const { results: ferdige } = await c.env.DB.prepare(
-    "SELECT ferdig_tidspunkt, tonn FROM Salgsordrer WHERE status='Ferdig' AND ferdig_tidspunkt >= ?",
-  ).bind(new Date(Date.now() - 366 * 86400000).toISOString()).all<{ ferdig_tidspunkt: string; tonn: number }>();
   const dag = (iso: string) => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' });
-  const perDag = new Map<string, number>();
-  for (const f of ferdige) perDag.set(dag(f.ferdig_tidspunkt), (perDag.get(dag(f.ferdig_tidspunkt)) ?? 0) + f.tonn);
-  const utlevertPerDag = Array.from({ length: 30 }, (_, i) => {
+  const fraDato = dag(new Date(Date.now() - 366 * 86400000).toISOString());
+  const [so, kai] = await Promise.all([
+    c.env.DB.prepare("SELECT ferdig_tidspunkt, tonn FROM Salgsordrer WHERE status='Ferdig' AND ferdig_tidspunkt >= ?").bind(fraDato).all<{ ferdig_tidspunkt: string; tonn: number }>(),
+    c.env.DB.prepare("SELECT kai_dato, operasjon, tonn, lager_fort FROM Kaibok WHERE kai_dato >= ? AND tonn IS NOT NULL").bind(fraDato).all<{ kai_dato: string; operasjon: string; tonn: number; lager_fort: number }>(),
+  ]);
+  const ut = new Map<string, number>(), inn = new Map<string, number>();
+  const legg = (m: Map<string, number>, d: string, t: number) => m.set(d, (m.get(d) ?? 0) + t);
+  for (const r of so.results) legg(ut, dag(r.ferdig_tidspunkt), r.tonn);
+  for (const k of kai.results) {
+    if (k.operasjon === 'Lossing') legg(inn, k.kai_dato, k.tonn);
+    else if (k.lager_fort === 1) legg(ut, k.kai_dato, k.tonn);
+  }
+  const rund = (x: number) => Math.round(x * 10) / 10;
+  const bevegelserPerDag = Array.from({ length: 30 }, (_, i) => {
     const d = dag(new Date(Date.now() - (29 - i) * 86400000).toISOString());
-    return { dato: d, tonn: Math.round((perDag.get(d) ?? 0) * 10) / 10 };
+    return { dato: d, ut: rund(ut.get(d) ?? 0), inn: rund(inn.get(d) ?? 0) };
   });
   const perioder = [1, 3, 7, 30, 90, 365].map((dager) => {
     const fra = dag(new Date(Date.now() - (dager - 1) * 86400000).toISOString());
-    let tonn = 0;
-    for (const [d, t] of perDag) if (d >= fra) tonn += t;
-    return { dager, tonn: Math.round(tonn * 10) / 10 };
+    const tell = (m: Map<string, number>) => { let t = 0; for (const [d, x] of m) if (d >= fra) t += x; return rund(t); };
+    return { dager, ut: tell(ut), inn: tell(inn) };
   });
   const totalt = { tonn_bulk: sum('Bulk'), antall_bigbags: sum('Bigbag'), antall_paller: sum('Pall') };
-  return c.json({ varer, totalt, perioder, utlevertPerDag });
+  return c.json({ varer, totalt, perioder, bevegelserPerDag });
 });
 
 // ---------- Båtanløp ----------

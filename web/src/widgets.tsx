@@ -78,26 +78,32 @@ function KpiGjenstar() {
 
 function Produksjon({ s }: { s: Str }) {
   const { data } = useDash();
-  const dager = data.utlevertPerDag.slice(s === 'L' ? -30 : -7);
-  const maks = Math.max(...dager.map((d) => d.tonn));
-  const total = dager.reduce((x, d) => x + d.tonn, 0);
+  const dager = data.bevegelserPerDag.slice(s === 'L' ? -30 : -7);
+  const tot = (d: { ut: number; inn: number }) => d.ut + d.inn;
+  const maks = Math.max(...dager.map(tot));
+  const sumUt = dager.reduce((x, d) => x + d.ut, 0), sumInn = dager.reduce((x, d) => x + d.inn, 0);
   return (
     <section className={`panel ${s === 'S' ? 'kompakt' : ''}`}>
-      <div className="row"><h3>Utlevert siste {dager.length} dager</h3><span className="muted">{fmtTonn(total)}</span></div>
+      <div className="row"><h3>Last og lossing siste {dager.length} dager</h3></div>
+      <div className="legend bev-legend"><span><i className="lg ut" /> Lastet ut {fmtTonn(sumUt)}</span><span><i className="lg inn" /> Losset inn {fmtTonn(sumInn)}</span></div>
       {maks === 0 ? (
-        <p className="muted pr-tom">Ingen utleveringer ennå. Tall vises her når ordrer og lastesteg er markert ferdige.</p>
+        <p className="muted pr-tom">Ingen last eller lossing ennå. Tall vises her når ordrer er ferdige og kaibok-føringer er registrert.</p>
       ) : (
         <div className={`pills ${s === 'L' ? 'tett' : ''}`}>
           {dager.map((d, n) => {
-            const dag = new Date(d.dato).getDay();
-            const helg = dag === 0 || dag === 6;
-            const topp = d.tonn === maks;
-            const h = d.tonn === 0 ? 6 : 20 + (d.tonn / maks) * 80;
+            const h = tot(d) === 0 ? 6 : 20 + (tot(d) / maks) * 80;
             return (
               <div key={d.dato} className="pill-col">
                 <div className="pill-bar-wrap">
-                  {topp && <span className="tip">{fmtTonn(d.tonn)}</span>}
-                  <div className={`pill-bar ${d.tonn === 0 ? 'hatch' : helg ? 'hatch' : topp ? 'darkest' : 'mid'}`} style={{ height: `${h}%` }} title={`${d.dato}: ${fmtTonn(d.tonn)}`} />
+                  {tot(d) === maks && <span className="tip">{fmtTonn(tot(d))}</span>}
+                  {tot(d) === 0 ? (
+                    <div className="pill-bar hatch" style={{ height: `${h}%` }} title={d.dato} />
+                  ) : (
+                    <div className="pill-bar stabel" style={{ height: `${h}%` }} title={`${d.dato}: lastet ${fmtTonn(d.ut)}, losset ${fmtTonn(d.inn)}`}>
+                      {d.inn > 0 && <div className="seg inn" style={{ flex: d.inn }} />}
+                      {d.ut > 0 && <div className="seg ut" style={{ flex: d.ut }} />}
+                    </div>
+                  )}
                 </div>
                 <span>{s === 'L' ? (n % 3 === 0 ? new Date(d.dato).getDate() : '') : new Date(d.dato).toLocaleDateString('nb-NO', { weekday: 'narrow' }).toUpperCase()}</span>
               </div>
@@ -175,33 +181,36 @@ function Batanlop({ s }: { s: Str }) {
 function Beholdning({ s }: { s: Str }) {
   const { data } = useDash();
   const varer = s === 'S' ? data.varer.slice(0, 3) : data.varer;
-  const liste = (
-    <ul className="list roomy">
-      {varer.length === 0 && <li className="muted">Ingen produkter ennå – opprett dem under <a href="#/admin" className="nb-lenke">Admin</a>.</li>}
-      {varer.map((v) => (
-        <li key={v.id}>
-          <span className="salt-dot" style={{ background: v.fargekode }} />
-          <span className="li-main"><b>{v.navn}</b>{s !== 'S' && <small>{v.produktnr} · {v.type === 'Bulk' ? 'bulk' : v.type === 'Bigbag' ? 'bigbag' : 'pall'}</small>}</span>
-          <b className="li-r">{mengdeTekst(v.type, v.lager)}</b>
-        </li>
-      ))}
-    </ul>
+  const rad = (v: (typeof varer)[number]) => (
+    <li key={v.id}>
+      <span className="salt-dot" style={{ background: v.fargekode }} />
+      <span className="li-main"><b>{v.navn}</b>{s !== 'S' && <small>{v.produktnr} · {v.type === 'Bulk' ? 'bulk' : v.type === 'Bigbag' ? 'bigbag' : 'pall'}</small>}</span>
+      <b className="li-r">{mengdeTekst(v.type, v.lager)}</b>
+    </li>
   );
-  if (s === 'S') return <section className="panel kompakt"><h3>Beholdning</h3>{liste}</section>;
+  const tom = <li className="muted">Ingen produkter ennå – opprett dem under <a href="#/admin" className="nb-lenke">Admin</a>.</li>;
+  if (s === 'S') return <section className="panel kompakt"><h3>Beholdning</h3><ul className="list roomy">{varer.length === 0 ? tom : varer.map(rad)}</ul></section>;
+  const tabell = (
+    <table className="mini bh-tabell">
+      <thead><tr><th>Periode</th><th className="num">Lastet (t)</th><th className="num">Losset (t)</th></tr></thead>
+      <tbody>
+        {data.perioder.map((p) => (
+          <tr key={p.dager}><td>{p.dager === 1 ? 'I dag' : `${p.dager} dager`}</td><td className="num">{p.ut.toLocaleString('nb-NO')}</td><td className="num">{p.inn.toLocaleString('nb-NO')}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  );
   return (
     <section className="panel">
       <h3>Beholdning (on-hand)</h3>
-      <div className="bh-to">
-        {liste}
-        <table className="mini">
-          <thead><tr><th>Periode</th><th className="num">Utlevert (t)</th></tr></thead>
-          <tbody>
-            {data.perioder.map((p) => (
-              <tr key={p.dager}><td>{p.dager === 1 ? 'I dag' : `${p.dager} dager`}</td><td className="num">{p.tonn.toLocaleString('nb-NO')}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {s === 'M' ? (
+        <ul className="list bh-kompakt">{varer.length === 0 ? tom : varer.map(rad)}</ul>
+      ) : (
+        <div className="bh-to">
+          <ul className="list bh-kompakt en">{varer.length === 0 ? tom : varer.map(rad)}</ul>
+          {tabell}
+        </div>
+      )}
     </section>
   );
 }
@@ -269,10 +278,10 @@ export const WIDGETS: WidgetDef[] = [
   { id: 'kpi-anlop', tittel: 'Aktive båtanløp', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiAnlop },
   { id: 'kpi-ordrer', tittel: 'Åpne lastebilordrer', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiOrdrer },
   { id: 'kpi-gjenstar', tittel: 'Gjenstår å laste', storrelser: { S: [3, 3] }, standard: 'S', komponent: KpiGjenstar },
-  { id: 'produksjon', tittel: 'Utlevert tonn', beskrivelse: 'Utleverte tonn pr. dag (L: 30 dager)', storrelser: { S: [6, 3], M: [6, 6], L: [12, 6] }, standard: 'M', komponent: Produksjon },
+  { id: 'produksjon', tittel: 'Last og lossing', beskrivelse: 'Tonn lastet ut og losset inn pr. dag (L: 30 dager)', storrelser: { S: [6, 3], M: [6, 6], L: [12, 6] }, standard: 'M', komponent: Produksjon },
   { id: 'lastes-na', tittel: 'Lastes nå', storrelser: { S: [3, 3], M: [6, 3] }, standard: 'S', komponent: LastesNa },
   { id: 'batanlop', tittel: 'Båtanløp', beskrivelse: 'Liste over anløp (L: med fremdrift)', storrelser: { S: [3, 3], M: [3, 6], L: [6, 6] }, standard: 'M', komponent: Batanlop },
-  { id: 'beholdning', tittel: 'Beholdning (on-hand)', beskrivelse: 'Lager pr. produkt (M: med utlevert pr. periode)', storrelser: { S: [3, 3], M: [6, 6] }, standard: 'M', komponent: Beholdning },
+  { id: 'beholdning', tittel: 'Beholdning (on-hand)', beskrivelse: 'Lager pr. produkt (M: kompakt, L: dobbel høyde med lastet/losset pr. periode)', storrelser: { S: [3, 3], M: [6, 6], L: [6, 12] }, standard: 'M', komponent: Beholdning },
   { id: 'framdrift', tittel: 'Lasteframdrift', storrelser: { S: [3, 3], M: [3, 6] }, standard: 'M', komponent: Framdrift },
   { id: 'neste-frist', tittel: 'Neste lastebil-frist', storrelser: { S: [3, 3], M: [6, 3] }, standard: 'S', komponent: NesteFrist },
   ...EKSTRA_WIDGETS,
@@ -284,7 +293,7 @@ export const def = (id: string) => WIDGETS.find((w) => w.id === id);
 export const STANDARD: Plass[] = [
   { i: 'kpi-lager', s: 'S' }, { i: 'kpi-anlop', s: 'S' }, { i: 'kpi-ordrer', s: 'S' }, { i: 'kpi-gjenstar', s: 'S' },
   { i: 'produksjon', s: 'M' }, { i: 'lastes-na', s: 'S' }, { i: 'neste-frist', s: 'S' }, { i: 'framdrift', s: 'S' }, { i: 'bemanning', s: 'S' },
-  { i: 'beholdning', s: 'M' }, { i: 'batanlop', s: 'M' }, { i: 'kaibok-siste', s: 'M' },
+  { i: 'beholdning', s: 'L' }, { i: 'lager-ordre', s: 'M' }, { i: 'batanlop', s: 'M' }, { i: 'kaibok-siste', s: 'M' },
 ];
 
 // ---------- Lagring (serveren lagrer {i,x,y,w,h}; rekkefølgen = y) ----------

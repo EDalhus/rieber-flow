@@ -251,7 +251,7 @@ function LagerOrdre({ s }: { s: Str }) {
   return (
     <section className={`panel ${s === 'S' ? 'kompakt' : ''}`}>
       <h3>Lager mot åpne ordrer</h3>
-      <div className="lo-liste">
+      <div className={`lo-liste ${s === 'L' ? 'to' : ''}`}>
         {vis.length === 0 && <p className="muted">Ingen produkter ennå – opprett dem under <a href="#/admin" className="nb-lenke">Admin</a>.</p>}
         {vis.map(({ v, behov, mangler, antall, forste }) => {
           const maks = Math.max(v.lager, behov, 1);
@@ -438,7 +438,7 @@ function Hurtigvalg({ s }: { s: Str }) {
 export const EKSTRA_WIDGETS: WidgetDef[] = [
   { id: 'neste-bat', tittel: 'Neste båt (kart)', beskrivelse: 'Neste planlagte anløp: fart, sjøvei og tid igjen (M/L: med kart)', storrelser: { S: [3, 3], M: [6, 6], L: [9, 6] }, standard: 'M', komponent: NesteBat },
   { id: 'bemanning', tittel: 'Bemanning i dag', beskrivelse: 'Hvem er på jobb, fravær og uken fremover', storrelser: { S: [3, 3], M: [3, 6], L: [6, 6] }, standard: 'S', komponent: Bemanning },
-  { id: 'lager-ordre', tittel: 'Lager mot åpne ordrer', beskrivelse: 'Er det nok salt på lager til det som er bestilt?', storrelser: { S: [3, 3], M: [3, 6], L: [6, 6] }, standard: 'M', komponent: LagerOrdre },
+  { id: 'lager-ordre', tittel: 'Lager mot åpne ordrer', beskrivelse: 'Er det nok salt på lager til det som er bestilt?', storrelser: { S: [3, 3], M: [3, 12], L: [6, 12] }, standard: 'M', komponent: LagerOrdre },
   { id: 'kaibok-siste', tittel: 'Siste anløp i kaiboken', beskrivelse: 'Nyeste føringer og antall avvik', storrelser: { S: [3, 3], M: [3, 6], L: [6, 6] }, standard: 'M', komponent: KaibokSiste },
   { id: 'vaer', tittel: 'Vær ved terminalen', beskrivelse: 'Vind, bølger og timesprognose (MET Norway)', storrelser: { S: [3, 3], M: [3, 6], L: [6, 3] }, standard: 'M', komponent: Vaer },
   { id: 'lasteplaner', tittel: 'Lasteplaner', beskrivelse: 'Fremdrift for alle båter med lasteplan', storrelser: { S: [3, 3], M: [3, 6], L: [6, 3] }, standard: 'M', komponent: Lasteplaner },
